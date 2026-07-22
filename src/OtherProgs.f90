@@ -1,3 +1,89 @@
+subroutine TRACE_RESET()
+    implicit none
+    integer*4 TraceCount, TraceActive, TraceActiveIndex, I, J
+    integer*2 TraceKind(1:4096), TraceNPoints(1:4096)
+    real*4 TraceAngle(1:4096), TraceX(1:4096,1:151), TraceY(1:4096,1:151)
+    common /TraceData/ TraceCount, TraceActive, TraceActiveIndex, TraceKind, TraceNPoints, TraceAngle, TraceX, TraceY
+    TraceCount = 0
+    TraceActive = 0
+    TraceActiveIndex = 0
+    do I = 1, 4096
+        TraceKind(I) = 0
+        TraceNPoints(I) = 0
+        TraceAngle(I) = 0.0
+        do J = 1, 151
+            TraceX(I,J) = 0.0
+            TraceY(I,J) = 0.0
+        end do
+    end do
+end subroutine TRACE_RESET
+
+subroutine TRACE_START(KindIn, AngleIn, XIn, YIn)
+    implicit none
+    integer*2 KindIn
+    real*4 AngleIn, XIn, YIn
+    integer*4 TraceCount, TraceActive, TraceActiveIndex
+    integer*2 TraceKind(1:4096), TraceNPoints(1:4096)
+    real*4 TraceAngle(1:4096), TraceX(1:4096,1:151), TraceY(1:4096,1:151)
+    common /TraceData/ TraceCount, TraceActive, TraceActiveIndex, TraceKind, TraceNPoints, TraceAngle, TraceX, TraceY
+    TraceActive = 0
+    if (TraceCount >= 4096) return
+    TraceCount = TraceCount + 1
+    TraceActiveIndex = TraceCount
+    TraceKind(TraceCount) = KindIn
+    TraceNPoints(TraceCount) = 1
+    TraceAngle(TraceCount) = AngleIn
+    TraceX(TraceCount,1) = XIn
+    TraceY(TraceCount,1) = YIn
+    TraceActive = 1
+end subroutine TRACE_START
+
+subroutine TRACE_ADD(XIn, YIn)
+    implicit none
+    real*4 XIn, YIn
+    integer*4 TraceCount, TraceActive, TraceActiveIndex
+    integer*2 TraceKind(1:4096), TraceNPoints(1:4096)
+    real*4 TraceAngle(1:4096), TraceX(1:4096,1:151), TraceY(1:4096,1:151)
+    common /TraceData/ TraceCount, TraceActive, TraceActiveIndex, TraceKind, TraceNPoints, TraceAngle, TraceX, TraceY
+    if (TraceActive == 1 .and. TraceActiveIndex > 0) then
+        if (TraceNPoints(TraceActiveIndex) < 151) then
+            TraceNPoints(TraceActiveIndex) = TraceNPoints(TraceActiveIndex) + 1
+            TraceX(TraceActiveIndex,TraceNPoints(TraceActiveIndex)) = XIn
+            TraceY(TraceActiveIndex,TraceNPoints(TraceActiveIndex)) = YIn
+        end if
+    end if
+end subroutine TRACE_ADD
+
+subroutine TRACE_SET_KIND(KindIn)
+    implicit none
+    integer*2 KindIn
+    integer*4 TraceCount, TraceActive, TraceActiveIndex
+    integer*2 TraceKind(1:4096), TraceNPoints(1:4096)
+    real*4 TraceAngle(1:4096), TraceX(1:4096,1:151), TraceY(1:4096,1:151)
+    common /TraceData/ TraceCount, TraceActive, TraceActiveIndex, TraceKind, TraceNPoints, TraceAngle, TraceX, TraceY
+    if (TraceActive == 1 .and. TraceActiveIndex > 0) TraceKind(TraceActiveIndex) = KindIn
+end subroutine TRACE_SET_KIND
+
+subroutine TRACE_SET_ANGLE(AngleIn)
+    implicit none
+    real*4 AngleIn
+    integer*4 TraceCount, TraceActive, TraceActiveIndex
+    integer*2 TraceKind(1:4096), TraceNPoints(1:4096)
+    real*4 TraceAngle(1:4096), TraceX(1:4096,1:151), TraceY(1:4096,1:151)
+    common /TraceData/ TraceCount, TraceActive, TraceActiveIndex, TraceKind, TraceNPoints, TraceAngle, TraceX, TraceY
+    if (TraceActive == 1 .and. TraceActiveIndex > 0) TraceAngle(TraceActiveIndex) = AngleIn
+end subroutine TRACE_SET_ANGLE
+
+subroutine TRACE_FINISH()
+    implicit none
+    integer*4 TraceCount, TraceActive, TraceActiveIndex
+    integer*2 TraceKind(1:4096), TraceNPoints(1:4096)
+    real*4 TraceAngle(1:4096), TraceX(1:4096,1:151), TraceY(1:4096,1:151)
+    common /TraceData/ TraceCount, TraceActive, TraceActiveIndex, TraceKind, TraceNPoints, TraceAngle, TraceX, TraceY
+    TraceActive = 0
+    TraceActiveIndex = 0
+end subroutine TRACE_FINISH
+
 ! ================================================================================
 ! DIFFDIFF: Two-Edge Diffraction Analysis Using Cascaded Scalar UTD Terms
 ! ================================================================================
