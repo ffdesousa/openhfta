@@ -63,6 +63,24 @@ class TestAPI(unittest.TestCase):
         self.assertIn("reflected", ray_counts)
         self.assertTrue(any(kind in ray_counts for kind in ("reflected_diffracted", "double_diffracted", "reflected_double_diffracted")))
 
+    def test_vertical_polarization_uses_tm_reflection(self):
+        profile = ROOT / "test/pro/PR1T-torre1-332.00.PRO"
+        common = {"frequency": "20m", "units": "meters", "heights": "10"}
+        horizontal = self.request("POST", "/api/analyze", data={**common, "polarization": "horizontal"}, files={"profile": (profile.name, profile.read_bytes(), "text/plain")})
+        vertical = self.request("POST", "/api/analyze", data={**common, "polarization": "vertical"}, files={"profile": (profile.name, profile.read_bytes(), "text/plain")})
+        self.assertEqual(horizontal.status_code, 200, horizontal.text)
+        self.assertEqual(vertical.status_code, 200, vertical.text)
+        self.assertEqual(horizontal.json()["configuration"]["polarization"], "horizontal")
+        self.assertEqual(vertical.json()["configuration"]["polarization"], "vertical")
+        self.assertNotEqual(horizontal.json()["pattern_db"], vertical.json()["pattern_db"])
+        self.assertTrue(any("Fresnel TM" in item for item in vertical.json()["limitations"]))
+
+    def test_invalid_polarization_is_rejected(self):
+        profile = ROOT / "test/pro/PR1T-torre1-332.00.PRO"
+        response = self.request("POST", "/api/analyze", data={"frequency": "20m", "polarization": "circular"}, files={"profile": (profile.name, profile.read_bytes(), "text/plain")})
+        self.assertEqual(response.status_code, 422)
+        self.assertIn("polarization", response.json()["detail"])
+
     def test_csv_export(self):
         profile = ROOT / "test/pro/PR1T-torre1-332.00.PRO"
         response = self.request("POST", "/api/analyze", data={"frequency": "20m", "export_format": "csv"}, files={"profile": (profile.name, profile.read_bytes(), "text/plain")})
@@ -100,7 +118,7 @@ class TestAPI(unittest.TestCase):
         configs = [
             {"name": "Norte", "heights": "10", "antenna_type": "Dipole"},
             {"name": "Leste", "heights": "15", "antenna_type": "Dipole"},
-            {"name": "Sul", "heights": "10 20", "antenna_type": "2-Ele"},
+            {"name": "Sul", "heights": "10 20", "antenna_type": "2-Ele", "polarization": "vertical"},
             {"name": "Oeste", "heights": "12 22*", "antenna_type": "2-Ele"},
         ]
         files = [
@@ -115,6 +133,7 @@ class TestAPI(unittest.TestCase):
         self.assertEqual(response.status_code, 200, response.text)
         payload = response.json()
         self.assertEqual(len(payload["scenarios"]), 4)
+        self.assertEqual(payload["scenarios"][2]["polarization"], "vertical")
         self.assertEqual(len(payload["comparison"]["pairwise"]), 3)
         self.assertEqual(len(payload["scenarios"][0]["profile"]["distances_m"]), 148)
         self.assertTrue(payload["limitations"])

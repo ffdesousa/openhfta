@@ -66,7 +66,9 @@ button, input, select { font: inherit; }
 .degree-scale { position: absolute; z-index: 3; top: 42px; right: 64px; bottom: 54px; display: flex; flex-direction: column-reverse; justify-content: space-between; align-items: flex-start; color: #c7d4d7; font: 11px 'DM Mono'; pointer-events: none; }
 .degree-scale span { position: relative; background: rgba(7, 21, 33, .72); padding-left: 7px; }
 .degree-scale span::before { content: ''; position: absolute; width: 4px; height: 1px; left: 0; top: 50%; background: #71858d; }
-.scenario-row { grid-template-columns: 1.4fr .35fr .4fr 1.1fr 1.2fr 1.2fr 24px; }
+.scenario-row { width: 100%; grid-template-columns: minmax(0, 1.35fr) minmax(72px, .45fr) minmax(90px, .7fr) minmax(120px, .9fr) minmax(0, 1.1fr) minmax(0, 1.1fr) minmax(0, 1.1fr) 24px; }
+.scenario-row > .scenario-control { width: 100%; }
+.scenario-row > .scenario-control input, .scenario-row > .scenario-control select { width: 100%; box-sizing: border-box; }
 .scenario-file { min-width: 0; display: flex; align-items: center; gap: 5px; overflow: hidden; color: #91a5ad; border: 1px solid #2e4753; border-radius: 3px; padding: 0 6px; font-size: 10px; }
 .scenario-file input { display: none; }
 .scenario-file strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: #b9c8cc; font-size: 10px; cursor: pointer; }
@@ -82,10 +84,10 @@ button, input, select { font: inherit; }
 .scenario-shared-prn { display: flex; align-items: center; color: #71858d; border: 1px dashed #2e4753; border-radius: 3px; padding: 0 7px; font-size: 10px; }
 .scenario-shared-prn,
 .scenario-file.scenario-control.field-disabled { display: none; }
-.scenario-row:has(.scenario-shared-prn) { grid-template-columns: 1.7fr .35fr .4fr 24px; }
-.scenario-row:has(.scenario-shared-prn):has(.scenario-file.scenario-control:not(.field-disabled)) { grid-template-columns: 1.5fr .35fr .4fr 1.5fr 24px; }
-.scenario-row:not(:has(.scenario-shared-prn)):has(.scenario-file.scenario-control.field-disabled) { grid-template-columns: 1.35fr .35fr .4fr 1.1fr 1.1fr 24px; }
-.scenario-row:not(:has(.scenario-shared-prn)):not(:has(.scenario-file.scenario-control.field-disabled)) { grid-template-columns: 1.25fr .35fr .4fr 1.05fr 1.05fr 1.05fr 24px; }
+.scenario-row:has(.scenario-shared-prn):not(:has(.scenario-file.scenario-control:not(.field-disabled))) { grid-template-columns: minmax(0, 1.4fr) minmax(72px, .55fr) minmax(90px, .8fr) minmax(120px, 1fr) minmax(0, 1.35fr) 24px; }
+.scenario-row:has(.scenario-shared-prn):has(.scenario-file.scenario-control:not(.field-disabled)) { grid-template-columns: minmax(0, 1.25fr) minmax(72px, .5fr) minmax(90px, .75fr) minmax(120px, 1fr) minmax(0, 1.2fr) minmax(0, 1.2fr) 24px; }
+.scenario-row:not(:has(.scenario-shared-prn)):has(.scenario-file.scenario-control.field-disabled) { grid-template-columns: minmax(0, 1.2fr) minmax(72px, .5fr) minmax(90px, .75fr) minmax(120px, 1fr) minmax(0, 1.2fr) minmax(0, 1.2fr) 24px; }
+.scenario-row:not(:has(.scenario-shared-prn)):not(:has(.scenario-file.scenario-control.field-disabled)) { grid-template-columns: minmax(0, 1.1fr) minmax(72px, .45fr) minmax(90px, .7fr) minmax(120px, 1fr) minmax(0, 1.15fr) minmax(0, 1.15fr) minmax(0, 1.15fr) 24px; }
 .scenario-field-labels { display: grid; grid-template-columns: 1.1fr .9fr 1fr 1fr 1fr 1.4fr 24px; gap: 6px; margin: -3px 11px 0; color: #71858d; font: 9px 'DM Mono'; letter-spacing: .06em; text-transform: uppercase; }
 .scenario-field-labels span { min-width: 0; }
 .scenario-field-labels { margin: -7px 0 0; padding: 11px 11px 0; border: 1px solid #263e4b; border-bottom: 0; border-radius: 4px 4px 0 0; background: rgba(7,21,33,.35); }

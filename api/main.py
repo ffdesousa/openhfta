@@ -43,6 +43,7 @@ ANTENNA_TYPES = {
     "Dipole": 1, "2-Ele": 2, "3-Ele": 3, "4-Ele": 4,
     "5-Ele": 5, "6-Ele": 6, "8-Ele": 7,
 }
+POLARIZATIONS = {"horizontal": 0, "vertical": 1}
 
 class AIExplanationRequest(BaseModel):
     analysis: dict
@@ -95,6 +96,12 @@ def _parse_heights(value: str, units: str) -> tuple[tuple[float, ...], tuple[int
         raise ValueError("the core supports at most four antenna elements")
     parsed = [parse_height_and_phase(item, units) for item in raw]
     return tuple(height for height, _ in parsed), tuple(phase for _, phase in parsed)
+
+
+def _validate_polarization(value: str) -> str:
+    if value not in POLARIZATIONS:
+        raise ValueError("polarization must be 'horizontal' or 'vertical'")
+    return value
 
 
 def _serialize_result(result) -> dict:
@@ -178,20 +185,22 @@ def _serialize_result(result) -> dict:
             "move_tower_ft": result.config.move_tower_ft,
             "move_tower_m": result.config.move_tower_ft / 3.28084,
             "antenna_pattern_type": result.config.antenna_pattern_type,
+            "polarization": result.config.polarization,
         },
         "warnings": result.warnings,
         "metadata": result.metadata,
         "ray_trace": client_trace,
-        "limitations": _model_limitations(),
+        "limitations": _model_limitations(result.config.polarization),
         "metrics": metrics,
         "interpretation": interpret_pattern(metrics, full_trace, {"distances_m": distances_m, "heights_m": heights_m}),
     }
 
 
-def _model_limitations() -> list[str]:
+def _model_limitations(polarization: str = "horizontal") -> list[str]:
     return [
         "O modelo representa um perfil bidimensional por azimute; não é uma simulação 3D completa.",
-        "O núcleo trabalha com polarização horizontal e modelos simplificados de antena.",
+        f"O núcleo trabalha com polarização {polarization} e modelos simplificados de antena.",
+        "Na polarização vertical, a reflexão usa Fresnel TM e a difração usa a combinação hard/TM do UTD escalar 2D; a validação contra referências externas continua necessária.",
         "O modelo de empilhamento não calcula acoplamento mútuo entre elementos muito próximos.",
         "A análise é uma estimativa de padrão de elevação, não uma garantia de enlace ou de intensidade recebida.",
         "A precisão depende da qualidade do DEM/perfil e pode apresentar artefatos em passos de 0,25°.",
@@ -274,11 +283,12 @@ def _attach_plot_data(payload: dict, flat_result=None, aoa_data: dict[int, float
 
 def _run_uploaded_analysis(content: bytes, frequency: str, units: str, heights: str,
                            antenna_type: str, soil_epsr: float, soil_sigma: float,
-                           no_diffraction: bool, move_tower: float):
+                           no_diffraction: bool, move_tower: float, polarization: str = "horizontal"):
     if units not in ("meters", "feet"):
         raise ValueError("units must be 'meters' or 'feet'")
     if antenna_type not in ANTENNA_TYPES:
         raise ValueError(f"invalid antenna_type: {antenna_type}")
+    polarization = _validate_polarization(polarization)
     frequency_mhz = parse_frequency(frequency)
     antenna_heights, antenna_phases = _parse_heights(heights, units)
     move_tower_ft = move_tower * (3.28084 if units == "meters" else 1.0)
@@ -292,6 +302,7 @@ def _run_uploaded_analysis(content: bytes, frequency: str, units: str, heights: 
             soil_epsr=soil_epsr, soil_sigma=soil_sigma,
             diffraction_disable=no_diffraction, move_tower_ft=move_tower_ft,
             antenna_pattern_type=ANTENNA_TYPES[antenna_type],
+            polarization=polarization,
         ))
 
 
@@ -302,6 +313,7 @@ async def analyze_endpoint(
     aoa_file: Annotated[UploadFile | None, File(description="Optional angle-of-arrival statistics .PRN")]=None,
     aoa_default: Annotated[str | None, Form()] = None,
     units: Annotated[str, Form()] = "meters",
+    polarization: Annotated[str, Form()] = "horizontal",
     heights: Annotated[str, Form()] = "10",
     antenna_type: Annotated[str, Form()] = "Dipole",
     soil_epsr: Annotated[float, Form()] = 13.0,
@@ -313,6 +325,10 @@ async def analyze_endpoint(
     """Validate one profile and run one synchronous core analysis."""
     if units not in ("meters", "feet"):
         raise HTTPException(422, "units must be 'meters' or 'feet'")
+    try:
+        polarization = _validate_polarization(polarization)
+    except ValueError as exc:
+        raise HTTPException(422, str(exc)) from exc
     if antenna_type not in ANTENNA_TYPES:
         raise HTTPException(422, f"invalid antenna_type: {antenna_type}")
     if not profile.filename:
@@ -351,8 +367,9 @@ async def analyze_endpoint(
                 diffraction_disable=no_diffraction,
                 move_tower_ft=move_tower_ft,
                 antenna_pattern_type=ANTENNA_TYPES[antenna_type],
+                polarization=polarization,
             ))
-            flat_result = _run_uploaded_analysis(_flat_profile_content(content, units), frequency, units, heights, antenna_type, soil_epsr, soil_sigma, no_diffraction, move_tower)
+            flat_result = _run_uploaded_analysis(_flat_profile_content(content, units), frequency, units, heights, antenna_type, soil_epsr, soil_sigma, no_diffraction, move_tower, polarization)
     except (ValueError, OpenHFTAError) as exc:
         raise HTTPException(422, str(exc)) from exc
     except OSError as exc:
@@ -381,6 +398,7 @@ async def compare_endpoint(
     heights_b: Annotated[str, Form()] = "10 20",
     antenna_type_b: Annotated[str, Form()] = "2-Ele",
     units: Annotated[str, Form()] = "meters",
+    polarization: Annotated[str, Form()] = "horizontal",
     soil_epsr: Annotated[float, Form()] = 13.0,
     soil_sigma: Annotated[float, Form()] = 0.005,
     no_diffraction: Annotated[bool, Form()] = False,
@@ -401,6 +419,7 @@ async def compare_endpoint(
         {"name": f"{antenna_type_b} / {heights_b}", "heights": heights_b, "antenna_type": antenna_type_b},
     ]
     try:
+        polarization = _validate_polarization(polarization)
         configs = json.loads(scenario_configs) if scenario_configs else default_configs
         if not isinstance(configs, list) or not 2 <= len(configs) <= 4:
             raise ValueError("scenario_configs must contain between two and four scenarios")
@@ -440,8 +459,9 @@ async def compare_endpoint(
             source_index = config.get("profile_upload_index", 0 if len(profile_contents) == 1 else index)
             if source_index >= len(profile_contents):
                 raise ValueError("profile_upload_index does not reference an uploaded .PRO")
-            real_result = _run_uploaded_analysis(profile_contents[source_index], frequency, units, config["heights"], config["antenna_type"], soil_epsr, soil_sigma, no_diffraction, move_tower)
-            flat_result = _run_uploaded_analysis(flat_contents[source_index], frequency, units, config["heights"], config["antenna_type"], soil_epsr, soil_sigma, no_diffraction, move_tower)
+            scenario_polarization = _validate_polarization(config.get("polarization", polarization))
+            real_result = _run_uploaded_analysis(profile_contents[source_index], frequency, units, config["heights"], config["antenna_type"], soil_epsr, soil_sigma, no_diffraction, move_tower, scenario_polarization)
+            flat_result = _run_uploaded_analysis(flat_contents[source_index], frequency, units, config["heights"], config["antenna_type"], soil_epsr, soil_sigma, no_diffraction, move_tower, scenario_polarization)
             results.append((real_result, flat_result, config, uploaded_profiles[source_index].filename))
         first = results[0][0]
         pairwise = [compare_patterns(first.angles_deg, first.pattern_db, item[0].angles_deg, item[0].pattern_db) for item in results[1:]]
@@ -456,6 +476,7 @@ async def compare_endpoint(
                 "name": config.get("name") or f"{config['antenna_type']} / {config['heights']}",
                 "heights_input": config["heights"],
                 "antenna_type": config["antenna_type"],
+                "polarization": result.config.polarization,
                 "profile_name": filename,
                 "prn_name": aoa_source,
                 "angles_deg": result.angles_deg.tolist(),
@@ -477,7 +498,7 @@ async def compare_endpoint(
             "scenarios": scenario_payload,
             "comparison": comparison,
             "interpretation": interpret_comparison(scenario_payload, comparison),
-            "limitations": _model_limitations(),
+            "limitations": _model_limitations(polarization),
         }
     except (ValueError, OpenHFTAError) as exc:
         raise HTTPException(422, str(exc)) from exc

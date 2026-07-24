@@ -40,7 +40,7 @@ def load_ytw_core(lib_path: Optional[str] = None) -> ctypes.CDLL:
         raise LibraryError("Symbol ytwcore1_ not found in library. Check library version.") from exc
     func.argtypes = [ctypes.POINTER(FortranReal), ctypes.POINTER(FortranReal),
         ctypes.POINTER(FortranReal), ctypes.POINTER(FortranReal), ctypes.POINTER(FortranReal),
-        ctypes.POINTER(FortranReal), ctypes.POINTER(FortranInt16), ctypes.POINTER(FortranInt16),
+        ctypes.POINTER(FortranReal), ctypes.POINTER(FortranInt16), ctypes.POINTER(FortranInt16), ctypes.POINTER(FortranInt16),
         ctypes.POINTER(FortranInt16), ctypes.POINTER(FortranReal), ctypes.POINTER(FortranReal),
         ctypes.POINTER(FortranInt16)]
     func.restype = None

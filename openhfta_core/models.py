@@ -24,6 +24,7 @@ class AnalysisConfig:
     lib_path: Optional[str] = None
     move_tower_ft: float = 0.0
     antenna_pattern_type: int = 1
+    polarization: str = "horizontal"
 
 @dataclass
 class AnalysisResult:

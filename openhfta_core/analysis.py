@@ -10,6 +10,8 @@ MAX_TRACE_PATHS = 4096
 MAX_TRACE_POINTS = 151
 
 def analyze(config: AnalysisConfig) -> AnalysisResult:
+    if config.polarization not in ("horizontal", "vertical"):
+        raise ValidationError("polarization must be 'horizontal' or 'vertical'")
     if len(config.antenna_heights_ft) > 4 or len(config.antenna_phases) > 4:
         raise ValidationError("The Fortran core supports at most four antenna elements")
     if len(config.antenna_heights_ft) != len(config.antenna_phases):
@@ -30,11 +32,13 @@ def analyze(config: AnalysisConfig) -> AnalysisResult:
     phases = np.ones(4, dtype=np.int16); phases[:len(config.antenna_phases)] = config.antenna_phases
     pattern = np.zeros(140, dtype=np.float32)
     freq = FortranReal(config.frequency_mhz); epsr = FortranReal(config.soil_epsr); sigma = FortranReal(config.soil_sigma)
-    pattern_type = FortranInt16(config.antenna_pattern_type); diffraction = FortranInt16(int(config.diffraction_disable))
+    pattern_type = FortranInt16(config.antenna_pattern_type)
+    polarization = FortranInt16(1 if config.polarization == "vertical" else 0)
+    diffraction = FortranInt16(int(config.diffraction_disable))
     debug = FortranInt16(int(config.debug_enable)); debug_angle = FortranReal(config.debug_angle)
     try:
         lib = load_ytw_core(config.lib_path)
-        lib.ytwcore1_(dg0.ctypes.data_as(ctypes.POINTER(FortranReal)), hg0.ctypes.data_as(ctypes.POINTER(FortranReal)), hant.ctypes.data_as(ctypes.POINTER(FortranReal)), ctypes.byref(freq), ctypes.byref(epsr), ctypes.byref(sigma), ctypes.byref(pattern_type), ctypes.byref(diffraction), ctypes.byref(debug), ctypes.byref(debug_angle), pattern.ctypes.data_as(ctypes.POINTER(FortranReal)), phases.ctypes.data_as(ctypes.POINTER(FortranInt16)))
+        lib.ytwcore1_(dg0.ctypes.data_as(ctypes.POINTER(FortranReal)), hg0.ctypes.data_as(ctypes.POINTER(FortranReal)), hant.ctypes.data_as(ctypes.POINTER(FortranReal)), ctypes.byref(freq), ctypes.byref(epsr), ctypes.byref(sigma), ctypes.byref(pattern_type), ctypes.byref(polarization), ctypes.byref(diffraction), ctypes.byref(debug), ctypes.byref(debug_angle), pattern.ctypes.data_as(ctypes.POINTER(FortranReal)), phases.ctypes.data_as(ctypes.POINTER(FortranInt16)))
     except Exception as exc:
         if isinstance(exc, AnalysisError): raise
         raise AnalysisError(str(exc)) from exc

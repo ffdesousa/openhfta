@@ -158,7 +158,8 @@ subroutine DIFFDIFF ( NPoints, NDiffPoints, NElements, DebugEnable, DebugMode, D
     common /Globals/ DiffPtIdx, EdgePairUsed, NCountDiff, TotalDiffCount, DiffPh0, FAngle
 
     real*4 DG(0:150), HG(0:150), FREQ_MHZ, SOIL_EPSR, SOIL_COND_PARAM, k, LAMBDA_FT, PATTERN_ELEV_NORM60_OVER_BW, ARRAY_PATTERN_SCALE
-    common /Params/ DG, HG, FREQ_MHZ, SOIL_EPSR, SOIL_COND_PARAM, k, LAMBDA_FT, PATTERN_ELEV_NORM60_OVER_BW, ARRAY_PATTERN_SCALE
+    integer*2 POLARIZATION_MODE
+    common /Params/ DG, HG, FREQ_MHZ, SOIL_EPSR, SOIL_COND_PARAM, k, LAMBDA_FT, PATTERN_ELEV_NORM60_OVER_BW, ARRAY_PATTERN_SCALE, POLARIZATION_MODE
 
     real*4 PI, TWO_PI, UTD_MAG_THRESHOLD, DEG2RAD, HALF_PI, EARTH_RADIUS_FT
     common /Constants/ PI, TWO_PI, UTD_MAG_THRESHOLD, DEG2RAD, HALF_PI, EARTH_RADIUS_FT
@@ -386,6 +387,10 @@ subroutine YUTD ( FREQ_MHZ, L_waves, PhiP, Incl, PHR, OutMag, OutPhase )  !207
     real*4 PI, TWO_PI, UTD_MAG_THRESHOLD, DEG2RAD, HALF_PI, EARTH_RADIUS_FT
     common /Constants/ PI, TWO_PI, UTD_MAG_THRESHOLD, DEG2RAD, HALF_PI, EARTH_RADIUS_FT
 
+    real*4 DG(0:150), HG(0:150), FREQ_PARAM, SOIL_EPSR_PARAM, SOIL_COND_PARAM, K_PARAM, LAMBDA_PARAM, PATTERN_PARAM, ARRAY_PARAM
+    integer*2 POLARIZATION_MODE
+    common /Params/ DG, HG, FREQ_PARAM, SOIL_EPSR_PARAM, SOIL_COND_PARAM, K_PARAM, LAMBDA_PARAM, PATTERN_PARAM, ARRAY_PARAM, POLARIZATION_MODE
+
     real*4, external :: ATN4
 
     ! ====================================================================
@@ -406,9 +411,15 @@ subroutine YUTD ( FREQ_MHZ, L_waves, PhiP, Incl, PHR, OutMag, OutPhase )  !207
     L_param = L_waves  !239
     CALL WD(UTD_terms4, L_param, PHR, PhiP, SinBeta0, n_wedge)  !240
 
-    ! Combine the 4 UTD terms from WD calculation
-    ! The signs combine the four angular terms into the diffraction coefficient
-    UTD_sum = (UTD_terms4(1) + UTD_terms4(2)) - (UTD_terms4(3) + UTD_terms4(4))  !243
+    ! Combine the 4 UTD terms from WD calculation.
+    ! In this 2-D wedge convention, horizontal/TE is the soft coefficient
+    ! and vertical/TM is the complementary hard coefficient. The hard
+    ! coefficient changes the sign of the phi_d + phi_i pair.
+    if (POLARIZATION_MODE == 1) then
+        UTD_sum = (UTD_terms4(1) + UTD_terms4(2)) + (UTD_terms4(3) + UTD_terms4(4))  !243v
+    else
+        UTD_sum = (UTD_terms4(1) + UTD_terms4(2)) - (UTD_terms4(3) + UTD_terms4(4))  !243h
+    end if
 
     ! Apply the scalar distance normalization; for positive L the wavelength factors cancel
     UTD_sum = SQRT(LambdaNormFt)*UTD_sum*1.0/SQRT(LambdaNormFt*L_param)  !247
@@ -649,11 +660,12 @@ end function  !378
 ! ================================================================================
 ! FRESNEL: Plane-Wave Ground Reflection Coefficient Calculator
 ! ================================================================================
-! Purpose: Computes the horizontal-polarization Fresnel coefficient for a
+! Purpose: Computes the selected-polarization Fresnel coefficient for a
 !          plane wave reflecting from lossy ground using complex permittivity
 !
-! Theory: Uses the supplied angle in the horizontal Fresnel coefficient form:
+! Theory: Uses elevation angle a and the selected TE/TM Fresnel form:
 !         Gamma_h(a)=(sin a - sqrt(eps_r-cos^2 a))/(sin a + sqrt(...))
+!         Gamma_v(a)=(eps_r*sin a - sqrt(eps_r-cos^2 a))/(eps_r*sin a + sqrt(...))
 !         eps_r = eps' - j*sigma/(omega*eps0) is complex permittivity
 !         ε' = relative permittivity, σ = conductivity [S/m]
 !
@@ -675,7 +687,8 @@ subroutine FRESNEL ( FresnelAngle, AmpIn, PhaseIn, AmpOut, PhaseOut )  !381
     real*4 num_real, phi_over2, sqrt_eps_mag, eps_imag_term, eps_minus_cos2
 
     real*4 DG(0:150), HG(0:150), FREQ_MHZ, SOIL_EPSR, SOIL_COND_PARAM, k, LAMBDA_FT, PATTERN_ELEV_NORM60_OVER_BW, ARRAY_PATTERN_SCALE
-    common /Params/ DG, HG, FREQ_MHZ, SOIL_EPSR, SOIL_COND_PARAM, k, LAMBDA_FT, PATTERN_ELEV_NORM60_OVER_BW, ARRAY_PATTERN_SCALE
+    integer*2 POLARIZATION_MODE
+    common /Params/ DG, HG, FREQ_MHZ, SOIL_EPSR, SOIL_COND_PARAM, k, LAMBDA_FT, PATTERN_ELEV_NORM60_OVER_BW, ARRAY_PATTERN_SCALE, POLARIZATION_MODE
 
     real*4, external :: ATN4
 
@@ -689,12 +702,19 @@ subroutine FRESNEL ( FresnelAngle, AmpIn, PhaseIn, AmpOut, PhaseOut )  !381
     eps_imag_term = -((SOIL_COND_PARAM * 18000.0) / FREQ_MHZ)  !397
     sqrt_eps_mag = SQRT(SQRT(eps_imag_term*eps_imag_term + eps_minus_cos2*eps_minus_cos2))  !398
     phi_over2 = ATN4(eps_minus_cos2, eps_imag_term) / 2.0  !399
-    num_real = SIN(ABS(FresnelAngle)) - COS(phi_over2)*sqrt_eps_mag  !400
-    num_imag = -(SIN(phi_over2)*sqrt_eps_mag)  !401
+    if (POLARIZATION_MODE == 1) then
+        num_real = SOIL_EPSR * SIN(ABS(FresnelAngle)) - COS(phi_over2)*sqrt_eps_mag  !400v
+        num_imag = eps_imag_term * SIN(ABS(FresnelAngle)) - (SIN(phi_over2)*sqrt_eps_mag)  !401v
+        den_real = SOIL_EPSR * SIN(ABS(FresnelAngle)) + COS(phi_over2)*sqrt_eps_mag  !404v
+        den_imag = eps_imag_term * SIN(ABS(FresnelAngle)) + (SIN(phi_over2)*sqrt_eps_mag)  !405v
+    else
+        num_real = SIN(ABS(FresnelAngle)) - COS(phi_over2)*sqrt_eps_mag  !400
+        num_imag = -(SIN(phi_over2)*sqrt_eps_mag)  !401
+        den_real = COS(phi_over2)*sqrt_eps_mag + SIN(ABS(FresnelAngle))  !404
+        den_imag = SIN(phi_over2)*sqrt_eps_mag  !405
+    end if
     num_abs = SQRT(num_imag*num_imag + num_real*num_real)  !402
     num_arg = ATN4(num_real, num_imag)  !403
-    den_real = COS(phi_over2)*sqrt_eps_mag + SIN(ABS(FresnelAngle))  !404
-    den_imag = SIN(phi_over2)*sqrt_eps_mag  !405
     den_abs = SQRT(den_real*den_real + den_imag*den_imag)  !406
     den_arg = ATN4(den_real, den_imag)  !407
     Gamma_mag = num_abs / den_abs  !408
@@ -863,7 +883,8 @@ subroutine DRD ( NPoints, NDiffPoints, NElements, DebugEnable, DebugMode, DebugE
     common /Globals/ DiffPtIdx, EdgePairUsed, NCountDiff, TotalDiffCount, DiffPh0, FAngle
 
     real*4 DG(0:150), HG(0:150), FREQ_MHZ, SOIL_EPSR, SOIL_COND_PARAM, k, LAMBDA_FT, PATTERN_ELEV_NORM60_OVER_BW, ARRAY_PATTERN_SCALE
-    common /Params/ DG, HG, FREQ_MHZ, SOIL_EPSR, SOIL_COND_PARAM, k, LAMBDA_FT, PATTERN_ELEV_NORM60_OVER_BW, ARRAY_PATTERN_SCALE
+    integer*2 POLARIZATION_MODE
+    common /Params/ DG, HG, FREQ_MHZ, SOIL_EPSR, SOIL_COND_PARAM, k, LAMBDA_FT, PATTERN_ELEV_NORM60_OVER_BW, ARRAY_PATTERN_SCALE, POLARIZATION_MODE
 
     real*4 PI, TWO_PI, UTD_MAG_THRESHOLD, DEG2RAD, HALF_PI, EARTH_RADIUS_FT
     common /Constants/ PI, TWO_PI, UTD_MAG_THRESHOLD, DEG2RAD, HALF_PI, EARTH_RADIUS_FT

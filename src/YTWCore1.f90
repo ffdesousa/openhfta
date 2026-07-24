@@ -34,6 +34,7 @@
 !   DebugEnable_in     - Debug file output enable (1=on, 0=off)
 !   DebugExitAngle_in  - Specific exit angle for detailed debug output [degrees]
 !   AntPhase(0:3)      - Phase settings: 1=0°, -1=180° for each antenna element
+!   Polarization      - 0=horizontal/TE, 1=vertical/TM
 !
 ! Output Parameters:
 !   Pattern_dB(0:139)  - Elevation pattern in dB; 140 points at 0.25° resolution
@@ -43,16 +44,15 @@
 !
 ! Key Physical Constants Used:
 !   LAMBDA_FT = 983.5712/f_MHz [feet], k = 2π/λ [rad/ft], f in MHz
-!   FRESNEL uses ABS(outgoing ray angle) in Gh=(sin a-sqrt(eps-cos^2 a))/(sin a+sqrt(...))
-!   with eps = eps' - j*sigma/(omega*eps0); horizontal-polarization coefficient
+!   FRESNEL uses ABS(outgoing ray angle) with the selected TE/TM coefficient
 !   UTD diffraction uses scalar straight-wedge terms with one L_waves per YUTD call
 !
 ! ================================================================================
-subroutine YTWCore1 (DG0_in, HG0_in, HantFeetIn, FREQ_MHZ_in, SOIL_EPSR_in, SOIL_COND_PARAM_in, AntPatternType, DiffractionDisable, DebugEnable_in, DebugExitAngle_in, Pattern_dB, AntPhase) !1
+subroutine YTWCore1 (DG0_in, HG0_in, HantFeetIn, FREQ_MHZ_in, SOIL_EPSR_in, SOIL_COND_PARAM_in, AntPatternType, Polarization, DiffractionDisable, DebugEnable_in, DebugExitAngle_in, Pattern_dB, AntPhase) !1
 !DEC$ ATTRIBUTES DLLEXPORT::YTWCore1
     implicit none
     real*4 DG0_in(0:150), HG0_in(0:150), HantFeetIn(0:3), FREQ_MHZ_in, SOIL_EPSR_in, SOIL_COND_PARAM_in
-    integer*2 AntPatternType, DiffractionDisable, DebugEnable_in
+    integer*2 AntPatternType, Polarization, DiffractionDisable, DebugEnable_in
     real*4 DebugExitAngle_in, Pattern_dB(0:139)
     integer*2 AntPhase(0:3)
 
@@ -76,7 +76,8 @@ subroutine YTWCore1 (DG0_in, HG0_in, HantFeetIn, FREQ_MHZ_in, SOIL_EPSR_in, SOIL
     common /Globals/ DiffPtIdx, EdgePairUsed, NCountDiff, TotalDiffCount, DiffPh0, FAngle
 
     real*4 DG(0:150), HG(0:150), FREQ_MHZ, SOIL_EPSR, SOIL_COND_PARAM, k, LAMBDA_FT, PATTERN_ELEV_NORM60_OVER_BW, ARRAY_PATTERN_SCALE
-    common /Params/ DG, HG, FREQ_MHZ, SOIL_EPSR, SOIL_COND_PARAM, k, LAMBDA_FT, PATTERN_ELEV_NORM60_OVER_BW, ARRAY_PATTERN_SCALE
+    integer*2 POLARIZATION_MODE
+    common /Params/ DG, HG, FREQ_MHZ, SOIL_EPSR, SOIL_COND_PARAM, k, LAMBDA_FT, PATTERN_ELEV_NORM60_OVER_BW, ARRAY_PATTERN_SCALE, POLARIZATION_MODE
 
     integer*4 TraceCount, TraceActive, TraceActiveIndex
     integer*2 TraceKind(1:4096), TraceNPoints(1:4096)
@@ -155,6 +156,7 @@ subroutine YTWCore1 (DG0_in, HG0_in, HantFeetIn, FREQ_MHZ_in, SOIL_EPSR_in, SOIL
     FREQ_MHZ = FREQ_MHZ_in  !136
     SOIL_EPSR = SOIL_EPSR_in  !137
     SOIL_COND_PARAM = SOIL_COND_PARAM_in  !138
+    POLARIZATION_MODE = Polarization  !138a
 
     ! Antenna pattern parameters based on type selection (HFTA GUI mapping)
     ! Sets element elevation beamwidth (PatternBeamwidthDeg) and an
@@ -1160,7 +1162,8 @@ subroutine REFL( IptStart, IptEnd, RayAngle0, RayHeight0, FinalPhase, ReflAmp, P
     common /Constants/ PI, TWO_PI, UTD_MAG_THRESHOLD, DEG2RAD, HALF_PI, EARTH_RADIUS_FT
 
     real*4 DG(0:150), HG(0:150), FREQ_MHZ, SOIL_EPSR, SOIL_COND_PARAM, k, LAMBDA_FT, PATTERN_ELEV_NORM60_OVER_BW, ARRAY_PATTERN_SCALE
-    common /Params/ DG, HG, FREQ_MHZ, SOIL_EPSR, SOIL_COND_PARAM, k, LAMBDA_FT, PATTERN_ELEV_NORM60_OVER_BW, ARRAY_PATTERN_SCALE
+    integer*2 POLARIZATION_MODE
+    common /Params/ DG, HG, FREQ_MHZ, SOIL_EPSR, SOIL_COND_PARAM, k, LAMBDA_FT, PATTERN_ELEV_NORM60_OVER_BW, ARRAY_PATTERN_SCALE, POLARIZATION_MODE
 
     integer*4 TraceCount, TraceActive, TraceActiveIndex
     integer*2 TraceKind(1:4096), TraceNPoints(1:4096)
