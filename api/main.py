@@ -5,7 +5,12 @@ input, builds an ``AnalysisConfig`` and serializes ``AnalysisResult``.
 """
 from pathlib import Path
 import json
+import logging
+import os
+import re
+import smtplib
 import tempfile
+from email.message import EmailMessage
 from typing import Annotated
 import numpy as np
 
@@ -14,6 +19,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, Response
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
+from starlette.concurrency import run_in_threadpool
 
 from openhfta_core.analysis import analyze
 from openhfta_core.aoa import parse_frequency, parse_prn_multiband, frequency_to_band
@@ -28,6 +34,7 @@ from openhfta_core.profiles import parse_height_and_phase, parse_profile
 from openhfta_core.terrain import summarize_terrain
 
 app = FastAPI(title="OpenHFTA API", version="0.1.0")
+logger = logging.getLogger("openhfta.feedback")
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[
@@ -49,6 +56,7 @@ class AIExplanationRequest(BaseModel):
     analysis: dict
 MAX_PROFILE_BYTES = 5 * 1024 * 1024
 DEFAULT_PRN_DIR = Path(__file__).resolve().parent.parent / "prns"
+MAX_FEEDBACK_MESSAGE = 4000
 
 
 @app.get("/health")
@@ -86,6 +94,76 @@ def ai_explain(request: AIExplanationRequest) -> dict:
         return explain_with_ai(request.analysis)
     except AIUnavailable as exc:
         raise HTTPException(503, str(exc)) from exc
+
+
+def _env_bool(name: str, default: bool = False) -> bool:
+    return os.getenv(name, str(default)).strip().lower() in {"1", "true", "yes", "on"}
+
+
+def _send_feedback_email(name: str, sender_email: str, category: str, message: str) -> None:
+    host = os.getenv("FEEDBACK_SMTP_HOST", "").strip()
+    recipient = os.getenv("FEEDBACK_TO_EMAIL", "").strip()
+    username = os.getenv("FEEDBACK_SMTP_USER", "").strip()
+    password = os.getenv("FEEDBACK_SMTP_PASSWORD", "")
+    if not host or not recipient:
+        raise RuntimeError("feedback email is not configured")
+    port = int(os.getenv("FEEDBACK_SMTP_PORT", "587"))
+    sender = os.getenv("FEEDBACK_FROM_EMAIL", "").strip() or username or recipient
+    subject = f"[OpenHFTA] {category}"
+    body = (
+        "Nova mensagem enviada pelo formulário de colaboração do OpenHFTA.\n\n"
+        f"Nome: {name or 'Não informado'}\n"
+        f"E-mail: {sender_email}\n"
+        f"Categoria: {category}\n\n"
+        f"Mensagem:\n{message}\n"
+    )
+    email = EmailMessage()
+    email["From"] = sender
+    email["To"] = recipient
+    email["Reply-To"] = sender_email
+    email["Subject"] = subject
+    email.set_content(body)
+    timeout = float(os.getenv("FEEDBACK_SMTP_TIMEOUT", "15"))
+    if _env_bool("FEEDBACK_SMTP_SSL"):
+        with smtplib.SMTP_SSL(host, port, timeout=timeout) as client:
+            if username:
+                client.login(username, password)
+            client.send_message(email)
+        return
+    with smtplib.SMTP(host, port, timeout=timeout) as client:
+        client.ehlo()
+        if _env_bool("FEEDBACK_SMTP_STARTTLS", True):
+            client.starttls()
+            client.ehlo()
+        if username:
+            client.login(username, password)
+        client.send_message(email)
+
+
+@app.post("/api/feedback")
+async def feedback_endpoint(
+    message: Annotated[str, Form()],
+    email: Annotated[str, Form()],
+    name: Annotated[str, Form()] = "",
+    category: Annotated[str, Form()] = "Sugestão",
+) -> dict:
+    """Send a user suggestion to the address configured by the operator."""
+    clean_name = " ".join(name.split())[:120]
+    clean_email = email.strip()
+    clean_category = " ".join(category.split())[:80] or "Sugestão"
+    clean_message = message.strip()
+    if not re.fullmatch(r"[^@\s]+@[^@\s]+\.[^@\s]+", clean_email):
+        raise HTTPException(422, "Informe um e-mail válido para podermos responder.")
+    if not clean_message:
+        raise HTTPException(422, "Escreva uma mensagem antes de enviar.")
+    if len(clean_message) > MAX_FEEDBACK_MESSAGE:
+        raise HTTPException(422, f"A mensagem deve ter no máximo {MAX_FEEDBACK_MESSAGE} caracteres.")
+    try:
+        await run_in_threadpool(_send_feedback_email, clean_name, clean_email, clean_category, clean_message)
+    except (OSError, smtplib.SMTPException, ValueError, RuntimeError) as exc:
+        logger.warning("feedback email could not be sent: %s", exc)
+        raise HTTPException(503, "No momento não foi possível enviar a mensagem. Tente novamente mais tarde.") from exc
+    return {"status": "sent", "message": "Obrigado pela colaboração! Sua mensagem foi enviada."}
 
 
 def _parse_heights(value: str, units: str) -> tuple[tuple[float, ...], tuple[int, ...]]:

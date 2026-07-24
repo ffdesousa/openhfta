@@ -31,6 +31,26 @@ class TestAPI(unittest.TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.json()["files"], sorted(path.name for path in (ROOT / "prns").glob("*.PRN")))
 
+    def test_feedback_is_sent_to_configured_mailer(self):
+        with patch("api.main._send_feedback_email") as send_feedback:
+            response = self.request(
+                "POST",
+                "/api/feedback",
+                data={"name": "Maria", "email": "maria@example.com", "category": "Sugestão", "message": "A interface ficou muito útil."},
+            )
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()["status"], "sent")
+        send_feedback.assert_called_once_with("Maria", "maria@example.com", "Sugestão", "A interface ficou muito útil.")
+
+    def test_feedback_rejects_invalid_email(self):
+        response = self.request(
+            "POST",
+            "/api/feedback",
+            data={"email": "email-invalido", "message": "Mensagem"},
+        )
+        self.assertEqual(response.status_code, 422)
+        self.assertIn("e-mail válido", response.json()["detail"])
+
     def test_invalid_profile_is_rejected(self):
         response = self.request(
             "POST",

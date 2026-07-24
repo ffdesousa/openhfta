@@ -166,6 +166,14 @@ function App() {
   const [aiError, setAiError] = useState('')
   const [showHelp, setShowHelp] = useState(false)
   const [showRayHelp, setShowRayHelp] = useState(false)
+  const [showFeedback, setShowFeedback] = useState(false)
+  const [feedbackName, setFeedbackName] = useState('')
+  const [feedbackEmail, setFeedbackEmail] = useState('')
+  const [feedbackCategory, setFeedbackCategory] = useState('Sugestão')
+  const [feedbackMessage, setFeedbackMessage] = useState('')
+  const [feedbackStatus, setFeedbackStatus] = useState('')
+  const [feedbackError, setFeedbackError] = useState('')
+  const [feedbackLoading, setFeedbackLoading] = useState(false)
   const [colorblindMode, setColorblindMode] = useState(() => window.localStorage.getItem('openhfta-colorblind-mode') === 'true')
   const [accessiblePatterns, setAccessiblePatterns] = useState(() => window.localStorage.getItem('openhfta-accessible-patterns') === 'true')
   const [rayKinds, setRayKinds] = useState<Record<string, boolean>>(() => Object.fromEntries(RAY_KINDS.map(kind => [kind, true])))
@@ -201,7 +209,7 @@ function App() {
   }
 
   useEffect(() => {
-    function closeOnEscape(event: KeyboardEvent) { if (event.key === 'Escape') setShowHelp(false) }
+    function closeOnEscape(event: KeyboardEvent) { if (event.key === 'Escape') { setShowHelp(false); setShowRayHelp(false); setShowFeedback(false) } }
     window.addEventListener('keydown', closeOnEscape)
     return () => window.removeEventListener('keydown', closeOnEscape)
   }, [])
@@ -323,6 +331,27 @@ function App() {
       setAiExplanation(payload)
     } catch (cause) { setAiError(cause instanceof Error ? cause.message : 'Falha ao consultar a IA.') }
     finally { setAiLoading(false) }
+  }
+
+  async function submitFeedback(event: FormEvent) {
+    event.preventDefault()
+    setFeedbackStatus('')
+    setFeedbackError('')
+    setFeedbackLoading(true)
+    const form = new FormData()
+    form.append('name', feedbackName)
+    form.append('email', feedbackEmail)
+    form.append('category', feedbackCategory)
+    form.append('message', feedbackMessage)
+    try {
+      const response = await fetch(`${API_URL}/api/feedback`, { method: 'POST', body: form })
+      const payload = await response.json().catch(() => ({}))
+      if (!response.ok) throw new Error(payload.detail || 'Não foi possível enviar sua mensagem.')
+      setFeedbackStatus(payload.message || 'Obrigado pela colaboração! Sua mensagem foi enviada.')
+      setFeedbackName(''); setFeedbackEmail(''); setFeedbackMessage('')
+    } catch (cause) {
+      setFeedbackError(cause instanceof Error ? cause.message : 'Não foi possível enviar sua mensagem.')
+    } finally { setFeedbackLoading(false) }
   }
 
   async function exportResult(format: string) {
@@ -463,6 +492,11 @@ function App() {
       </aside>
     </section>
 
+    <aside className="feedback-banner" aria-label="Convite para colaboração">
+      <div><span className="feedback-mark" aria-hidden="true">✦</span><div><strong>Ajude a melhorar o OpenHFTA</strong><p>Encontrou algo estranho ou tem uma sugestão? Sua experiência ajuda a tornar a ferramenta mais útil para toda a comunidade.</p></div></div>
+      <button type="button" onClick={() => { setFeedbackStatus(''); setFeedbackError(''); setShowFeedback(true) }}>Enviar sugestão <span>→</span></button>
+    </aside>
+
     <section className="workspace">
       <form className="panel controls" onSubmit={submit} onClickCapture={notifySharedResourceClick}>
         <div className="panel-heading"><span className="step">01</span><div><h2>Configuração</h2><p>Defina o cenário de análise</p></div><button type="button" className="help-button" onClick={() => setShowHelp(true)} aria-label="Explicar campos do formulário">?</button></div>
@@ -559,6 +593,20 @@ function App() {
         <p className="help-intro">O gráfico mostra caminhos geométricos calculados sobre o perfil. A linha representa o percurso; ela não é, sozinha, uma medição de potência recebida.</p>
         <div className="help-list">{rayHelpItems.map(([title, description]) => <article key={title}><h3>{title}</h3><p>{description}</p></article>)}</div>
         <div className="help-tip"><strong>Interações no gráfico</strong><p>Use os botões coloridos para ocultar ou exibir categorias. A legenda e o texto ao passar o mouse identificam o tipo, o ângulo de saída, o ganho estimado e a distância.</p></div>
+      </section>
+    </div>}
+    {showFeedback && <div className="modal-backdrop" role="presentation" onMouseDown={event => { if (event.target === event.currentTarget) setShowFeedback(false) }}>
+      <section className="help-modal feedback-modal" role="dialog" aria-modal="true" aria-labelledby="feedback-title">
+        <div className="help-modal-header"><div><p className="eyebrow">COLABORAÇÃO OPEN SOURCE</p><h2 id="feedback-title">Conte como podemos melhorar</h2></div><button type="button" className="modal-close" onClick={() => setShowFeedback(false)} aria-label="Fechar formulário de colaboração">×</button></div>
+        <p className="help-intro">Sugestões, correções e ideias de novos recursos são muito bem-vindas. Se quiser uma resposta, informe seu e-mail; ele será usado apenas para retornarmos sobre esta mensagem.</p>
+        <form className="feedback-form" onSubmit={submitFeedback}>
+          <div className="feedback-fields"><label>Nome (opcional)<input value={feedbackName} onChange={event => setFeedbackName(event.target.value)} maxLength={120} placeholder="Como podemos chamar você?" /></label><label>E-mail para retorno<input required type="email" value={feedbackEmail} onChange={event => setFeedbackEmail(event.target.value)} placeholder="voce@exemplo.com" /></label></div>
+          <label>Assunto<select value={feedbackCategory} onChange={event => setFeedbackCategory(event.target.value)}><option>Sugestão</option><option>Correção de resultado</option><option>Problema na interface</option><option>Novo recurso</option><option>Outro</option></select></label>
+          <label>Mensagem<textarea required value={feedbackMessage} onChange={event => setFeedbackMessage(event.target.value)} maxLength={4000} rows={7} placeholder="Descreva sua ideia, dificuldade ou sugestão…" /></label>
+          {feedbackError && <div className="error" role="alert">{feedbackError}</div>}
+          {feedbackStatus && <div className="feedback-success" role="status" aria-live="polite">{feedbackStatus}</div>}
+          <button className="submit" disabled={feedbackLoading}>{feedbackLoading ? 'Enviando…' : 'Enviar mensagem'} <span>→</span></button>
+        </form>
       </section>
     </div>}
     <footer className="site-footer">
