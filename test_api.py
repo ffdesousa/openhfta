@@ -8,6 +8,7 @@ from unittest.mock import patch
 
 from api.main import app
 import openhfta_core.ai as ai
+from openhfta_core.exports import result_figure
 
 ROOT = Path(__file__).parent
 
@@ -50,6 +51,27 @@ class TestAPI(unittest.TestCase):
         )
         self.assertEqual(response.status_code, 422)
         self.assertIn("e-mail válido", response.json()["detail"])
+
+    def test_exported_figure_contains_web_report_sections(self):
+        payload = {
+            "angles_deg": [0, 5, 10],
+            "pattern_db": [1.0, 4.0, 2.0],
+            "flat_pattern_db": [0.5, 2.5, 1.0],
+            "aoa": {"available": True, "band": "20m", "angles_deg": [1, 5], "probabilities_pct": [20, 30]},
+            "profile": {"points": 3, "distances_m": [0, 500, 1000], "heights_m": [100, 110, 105]},
+            "configuration": {"frequency_mhz": 14.1, "polarization": "vertical", "antenna_heights_m": [10], "diffraction_disable": False},
+            "sources": {"profile_name": "MORRO.PRO", "prn_name": "CAMPO.PRN"},
+            "ray_trace": {"paths": [{"kind": "direct", "distances_m": [0, 1000], "heights_m": [110, 105]}]},
+            "metrics": {"peak": {"value_db": 4, "angle_deg": 5}, "integrated_average_gain": {"average_db": 2}, "beamwidth_3db": {"width_deg": 8}},
+            "limitations": ["Modelo bidimensional."],
+        }
+        svg = result_figure(payload, "svg")
+        png = result_figure(payload, "png")
+        self.assertIn(b"OpenHFTA", svg)
+        self.assertIn(b"PADR", svg)
+        self.assertIn(b"PERFIL DO TERRENO", svg)
+        self.assertIn(b"TRA", svg)
+        self.assertTrue(png.startswith(b"\x89PNG"))
 
     def test_invalid_profile_is_rejected(self):
         response = self.request(

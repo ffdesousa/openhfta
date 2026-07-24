@@ -15,6 +15,7 @@ type Result = {
   }
   metadata: { profile_points?: number }
   limitations?: string[]
+  sources?: { profile_name?: string | null; prn_name?: string | null }
   metrics?: { peak: { angle_deg: number; value_db: number }; integrated_average_gain: { average_db: number }; beamwidth_3db: { width_deg: number | null }; nulls: { angle_deg: number; value_db: number }[]; figure_of_merit_db?: number }
   flat_pattern_db?: number[]
   aoa?: { band?: string | null; source?: string | null; angles_deg: number[]; probabilities_pct: number[]; available?: boolean; message?: string | null }
@@ -361,7 +362,7 @@ function App() {
     form.append('profile', file); form.append('frequency', frequency); form.append('units', units)
     form.append('heights', heights); form.append('antenna_type', antennaType); form.append('soil_epsr', soilEpsr)
     form.append('soil_sigma', soilSigma); form.append('move_tower', moveTower)
-    form.append('no_diffraction', String(noDiffraction)); form.append('export_format', format)
+    form.append('no_diffraction', String(noDiffraction)); form.append('polarization', polarization); form.append('export_format', format)
     if (aoaFile) form.append('aoa_file', aoaFile)
     if (selectedPrn) form.append('aoa_default', selectedPrn)
     let response: Response

@@ -453,6 +453,7 @@ async def analyze_endpoint(
     except OSError as exc:
         raise HTTPException(400, f"could not read profile: {exc}") from exc
     payload = _attach_plot_data(_serialize_result(result), flat_result, aoa_data, aoa_band, aoa_source)
+    payload["sources"] = {"profile_name": profile.filename, "prn_name": aoa_source}
     if export_format == "json":
         return JSONResponse(payload)
     if export_format == "csv":
