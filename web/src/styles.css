@@ -38,6 +38,9 @@ button, input, select { font: inherit; }
 .scenario-visuals .terrain-chart { height: clamp(280px, calc(18vw + 8vh), 520px) !important; min-height: clamp(280px, calc(18vw + 8vh), 520px); }
 .scenario-ray .terrain-heading small, .scenario-visual .terrain-heading small, .scenario-details .terrain-heading small { white-space: normal; line-height: 1.45; }
 .ray-help-button { flex: 0 0 auto; width: 22px; height: 22px; margin-left: 8px; border: 1px solid #46616c; border-radius: 50%; color: #f2a65a; background: rgba(242,166,90,.08); font: 600 12px 'Space Grotesk'; cursor: pointer; }
+.language-switcher { display: inline-flex; align-items: center; gap: 6px; color: #a9bbc0; font: 10px 'DM Mono'; text-transform: uppercase; letter-spacing: .04em; }
+.language-switcher select { color: #d9e4e6; background: #0a202d; border: 1px solid #304b58; border-radius: 3px; padding: 5px 7px; font: 11px Inter, sans-serif; }
+.language-switcher select:focus { outline: 1px solid #f2a65a; border-color: #f2a65a; }
 .ray-help-button:hover { color: #071521; border-color: #f2a65a; background: #f2a65a; }
 @media (max-width: 900px) { .workspace { grid-template-columns: 1fr; }.results { min-height: 500px; } } @media (max-width: 700px) { .intro { grid-template-columns: 1fr; gap: 32px; }.project-hero-credit { max-width: 430px; }.feedback-banner { align-items: flex-start; flex-direction: column; }.feedback-banner button { width: 100%; } } @media (max-width: 600px) { .help-list { grid-template-columns: 1fr; }.feedback-fields { grid-template-columns: 1fr; } } @media (max-width: 500px) { .shell { padding: 0 18px 24px; }.intro { padding: 50px 0 35px; }.topbar { height: 72px; }.status { font-size: 9px; }.panel { padding: 20px 16px; }.field-grid { grid-template-columns: 1fr; }.metrics { gap: 18px; flex-wrap: wrap; }.scenario-row { grid-template-columns: 1fr 1fr 24px; }.scenario-row input:first-child { grid-column: 1 / -1; } }
 .help-modal { font-size: 14px; }

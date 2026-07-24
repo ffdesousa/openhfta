@@ -28,13 +28,131 @@ type CompareResult = { angles_deg: number[]; scenarios: Scenario[]; comparison: 
 type AIExplanation = { headline: string; for_leigo: string; melhor_cenario: string; cenarios_analisados: string[]; por_que: string[]; recomendacoes: string[]; cuidados: string[]; confianca: string }
 type ScenarioConfig = { name: string; heights: string; antenna_type: string; polarization?: 'horizontal' | 'vertical'; prn_default?: string }
 type ColorPalette = { rays: Record<string, string>; scenarios: string[]; flatScenarios: string[]; terrain: string; flat: string; aoa: string; event: string; corner: string; antenna: string }
+type Locale = 'pt-BR' | 'en' | 'es'
+
+const LOCALE_OPTIONS: { value: Locale; label: string }[] = [
+  { value: 'pt-BR', label: 'Português (Brasil)' },
+  { value: 'en', label: 'English' },
+  { value: 'es', label: 'Español' },
+]
+
+const UI_TEXT: Record<Locale, Record<string, string>> = {
+  'pt-BR': {
+    language: 'Idioma', accessibleColors: 'Cores acessíveis', accessiblePatterns: 'Linhas e símbolos', online: 'núcleo Fortran online',
+    heroTitle: 'Veja o terreno', heroTitleEm: 'moldar o sinal.', heroLede: 'Envie um perfil de terreno e explore o padrão de elevação da sua antena em segundos.',
+    helpImprove: 'Ajude a melhorar o OpenHFTA', feedbackBanner: 'Encontrou algo estranho ou tem uma sugestão? Sua experiência ajuda a tornar a ferramenta mais útil para toda a comunidade.', sendSuggestion: 'Enviar sugestão',
+    configuration: 'Configuração', defineScenario: 'Defina o cenário de análise', explainFields: 'Explicar campos do formulário', uploadProfile: 'Solte seu perfil .PRO aqui', browseComputer: 'ou clique para procurar no computador',
+    frequency: 'Frequência', units: 'Unidade', meters: 'Metros', feet: 'Pés', antennaHeights: 'Alturas da antena', antennaType: 'Tipo de antena', polarization: 'Polarização', soilPermittivity: 'Permissividade do solo', soilConductivity: 'Condutividade (S/m)', towerOffset: 'Deslocamento da torre',
+    includeDiffraction: 'Incluir difração no cálculo', compareScenarios: 'Comparar cenários', calculate: 'Executar análise', calculating: 'Calculando...',
+    result: 'Resultado', waitingAnalysis: 'Aguardando uma análise', patternCalculated: 'Padrão calculado pelo núcleo', comparisonCalculated: 'Comparação calculada pelo núcleo', processing: 'Processando análise…',
+    terrainProfile: 'PERFIL DO TERRENO', rayTraceCore: 'TRAÇADO DE RAIOS DO NÚCLEO', export: 'EXPORTAR', emptyTitle: 'Seu padrão aparecerá aqui', emptyText: 'Preencha a configuração ao lado e execute a primeira análise.',
+    elevation: 'Elevação (°)', elevationStats: 'Estatística de elevação (%)', height: 'Altura (m)', distance: 'Distância (m)', gain: 'Ganho (dB)',
+    noDiffraction: 'Difração desativada', diffraction: 'Difração incluída', automaticReading: 'LEITURA AUTOMÁTICA', modelLimits: 'LIMITES DO MODELO',
+    explainResult: '✦ Explicar resultado com IA', interpreting: 'Interpretando...', quickGuide: 'GUIA RÁPIDO', close: 'Fechar', helpTitle: 'O que significa cada campo?', helpIntro: 'Esses parâmetros descrevem uma análise de padrão de elevação de uma antena HF sobre um perfil de terreno. O núcleo calcula em pés internamente, mas você pode informar e interpretar os valores em metros.', helpTip: 'Dica para começar', rayHelpTitle: 'Como ler as trajetórias?', rayHelpIntro: 'O gráfico mostra caminhos geométricos calculados sobre o perfil. A linha representa o percurso; ela não é, sozinha, uma medição de potência recebida.', rayTip: 'Interações no gráfico',
+    feedbackTitle: 'Conte como podemos melhorar', feedbackIntro: 'Sugestões, correções e ideias de novos recursos são muito bem-vindas. Se quiser uma resposta, informe seu e-mail; ele será usado apenas para retornarmos sobre esta mensagem.',
+    optionalName: 'Nome (opcional)', replyEmail: 'E-mail para retorno', subject: 'Assunto', message: 'Mensagem', sendMessage: 'Enviar mensagem', sending: 'Enviando…', securityCheck: 'Verificação de segurança para evitar mensagens automáticas.', newSuggestion: 'Enviar outra sugestão',
+    footer: 'preservando a inteligência do HFTA para sistemas modernos',
+    errProfileRequired: 'Selecione um arquivo .PRO antes de analisar.', errSharedProfileRequired: 'Selecione um .PRO compartilhado no formulário.', errAllScenarioProfiles: 'Informe um .PRO em todos os cenários.', errSharedPrnRequired: 'Informe um arquivo .PRN compartilhado ou selecione um PRN padrão.', errAllScenarioPrns: 'Informe um .PRN em todos os cenários ou selecione um PRN padrão para cada um.',
+    errAnalysisFailed: 'Não foi possível executar a análise.', errApiGeneric: 'Erro de comunicação com a API.', errAiExplain: 'Não foi possível obter a explicação da IA.', errAiFailed: 'Falha ao consultar a IA.', errFeedbackSend: 'Não foi possível enviar sua mensagem.', feedbackThanksDefault: 'Obrigado pela colaboração! Sua mensagem foi enviada.',
+    errExportPrn: 'Envie um arquivo .PRN próprio ou selecione um PRN padrão do projeto.', errExportFailed: 'Não foi possível gerar a exportação.', errProfileIndividualMode: 'O PRO está no modo individual. Selecione o arquivo dentro de um dos cenários.', errPrnIndividualMode: 'O PRN está no modo individual. Selecione o arquivo dentro de um dos cenários.',
+    upToFourScenarios: 'Até quatro cenários', sharedPrn: 'PRN compartilhado', individualPrn: 'PRN individual', sharedProfile: 'PRO compartilhado', individualProfile: 'PRO individual', addScenario: '+ adicionar',
+    scenarioHelpText: 'Você pode informar `.PRO` em cada linha. Escolha acima se o `.PRO` e o `.PRN` serão compartilhados pelo formulário ou individuais por cenário.',
+    scenarioNameLabel: 'Nome do cenário', scenarioNameTooltip: 'Nome usado nos gráficos e resultados', scenarioHeightsShort: 'Alturas', scenarioHeightsTooltip: 'Altura de cada elemento; use espaços entre valores e * para inverter a fase',
+    scenarioAntennaLabel: 'Antena', scenarioAntennaTooltip: 'Modelo de antena deste cenário', scenarioPolarizationTooltip: 'Polarização calculada neste cenário',
+    scenarioProfileLabel: 'Perfil .PRO', scenarioProfileTooltip: 'Perfil de terreno usado neste cenário', topBlockPlaceholder: 'bloco superior', scenarioPrnStatLabel: 'Estatística .PRN', scenarioPrnTooltip: 'Estatística dos ângulos de chegada', filePlaceholder: 'arquivo',
+    scenarioDefaultPrnLabel: 'PRN padrão', scenarioDefaultPrnTooltip: 'PRN padrão selecionado para este cenário', selectGeneric: 'Selecione',
+    comparisonWithScenarioA: 'Comparação com o cenário A', maxDifference: 'MAIOR DIFERENÇA', peakDifference: 'DIFERENÇA DE PICO', integratedAvgDiff: 'DIF. MÉDIA INTEGRADA',
+    peakOfPattern: 'PICO DO PADRÃO', peakAngleLabel: 'ÂNGULO DO PICO', integratedAverageLabel: 'MÉDIA INTEGRADA', beamwidth3db: 'LARGURA −3 dB', profilePointsLabel: 'PONTOS DO PERFIL', unitNotInformed: 'unidade não informada',
+    distanceAxis: 'Distância (m)', altitudeAxis: 'Altitude (m)', pointsWord: 'pontos', compatibleBand: 'banda compatível', projectDefault: 'padrão do projeto',
+    openSourceCollab: 'COLABORAÇÃO OPEN SOURCE',
+    heroEyebrow: 'PROJETO OPEN SOURCE', heroMaintainedBy: 'Projeto mantido pelo', heroDevContributions: 'Desenvolvimento e contribuições técnicas:', heroAuthorBio: 'Radioamador, doutor pelo IFSC/USP, atua com Large Language Models na UFSCar e participa de competições de segurança da informação e CTF pela Epic Leet.', heroOriginalProject: 'Projeto original no GitHub ↗', heroWebIntegration: 'Integração da versão web:', heroWebAuthorBio: 'Analista de sistemas e radioamador, responsável pela transformação do OpenHFTA em uma aplicação web moderna, com API, interface gráfica, análises comparativas, métricas e visualização dos resultados.',
+    footerMaintained: 'Projeto mantido pelo Rio DX Group · Desenvolvimento técnico:', footerWebIntegration: 'Integração web: Fernando Fernandes —',
+  },
+  en: {
+    language: 'Language', accessibleColors: 'Accessible colors', accessiblePatterns: 'Lines and symbols', online: 'Fortran core online',
+    heroTitle: 'See how terrain', heroTitleEm: 'shapes the signal.', heroLede: 'Upload a terrain profile and explore your antenna elevation pattern in seconds.',
+    helpImprove: 'Help improve OpenHFTA', feedbackBanner: 'Found something unusual or have a suggestion? Your experience helps make the tool more useful to the whole community.', sendSuggestion: 'Send suggestion',
+    configuration: 'Configuration', defineScenario: 'Define the analysis scenario', explainFields: 'Explain the form fields', uploadProfile: 'Drop your .PRO profile here', browseComputer: 'or click to browse your computer',
+    frequency: 'Frequency', units: 'Units', meters: 'Meters', feet: 'Feet', antennaHeights: 'Antenna heights', antennaType: 'Antenna type', polarization: 'Polarization', soilPermittivity: 'Ground dielectric constant', soilConductivity: 'Ground conductivity (S/m)', towerOffset: 'Tower offset',
+    includeDiffraction: 'Include diffraction in the calculation', compareScenarios: 'Compare scenarios', calculate: 'Run analysis', calculating: 'Calculating...',
+    result: 'Result', waitingAnalysis: 'Waiting for an analysis', patternCalculated: 'Pattern calculated by the HFTA core', comparisonCalculated: 'Comparison calculated by the HFTA core', processing: 'Processing analysis…',
+    terrainProfile: 'TERRAIN PROFILE', rayTraceCore: 'CORE RAY TRACE', export: 'EXPORT', emptyTitle: 'Your pattern will appear here', emptyText: 'Complete the configuration and run the first analysis.',
+    elevation: 'Elevation (°)', elevationStats: 'Elevation statistics (%)', height: 'Height (m)', distance: 'Distance (m)', gain: 'Gain (dB)',
+    noDiffraction: 'Diffraction disabled', diffraction: 'Diffraction included', automaticReading: 'AUTOMATIC READING', modelLimits: 'MODEL LIMITS',
+    explainResult: '✦ Explain result with AI', interpreting: 'Interpreting...', quickGuide: 'QUICK GUIDE', close: 'Close', helpTitle: 'What does each field mean?', helpIntro: 'These parameters describe an HF antenna elevation-pattern analysis over a terrain profile. The core calculates internally in feet, but you can enter and interpret values in meters.', helpTip: 'Getting started', rayHelpTitle: 'How should the paths be read?', rayHelpIntro: 'The chart shows geometric paths calculated over the profile. The line represents the path; by itself, it is not a measurement of received power.', rayTip: 'Chart interactions',
+    feedbackTitle: 'Tell us how we can improve', feedbackIntro: 'Suggestions, corrections, and ideas for new features are welcome. If you want a reply, provide your email; it will only be used to respond to this message.',
+    optionalName: 'Name (optional)', replyEmail: 'Reply email address', subject: 'Subject', message: 'Message', sendMessage: 'Send message', sending: 'Sending…', securityCheck: 'Security check to prevent automated messages.', newSuggestion: 'Send another suggestion',
+    footer: 'preserving HFTA intelligence for modern systems',
+    errProfileRequired: 'Select a .PRO file before analyzing.', errSharedProfileRequired: 'Select a shared .PRO in the form.', errAllScenarioProfiles: 'Provide a .PRO for every scenario.', errSharedPrnRequired: 'Provide a shared .PRN file or select a default PRN.', errAllScenarioPrns: 'Provide a .PRN for every scenario or select a default PRN for each one.',
+    errAnalysisFailed: 'Could not run the analysis.', errApiGeneric: 'API communication error.', errAiExplain: 'Could not get the AI explanation.', errAiFailed: 'Failed to query the AI.', errFeedbackSend: 'Could not send your message.', feedbackThanksDefault: 'Thanks for your feedback! Your message was sent.',
+    errExportPrn: 'Upload your own .PRN file or select a default PRN from the project.', errExportFailed: 'Could not generate the export.', errProfileIndividualMode: 'The PRO is in individual mode. Select the file inside one of the scenarios.', errPrnIndividualMode: 'The PRN is in individual mode. Select the file inside one of the scenarios.',
+    upToFourScenarios: 'Up to four scenarios', sharedPrn: 'Shared PRN', individualPrn: 'Individual PRN', sharedProfile: 'Shared PRO', individualProfile: 'Individual PRO', addScenario: '+ add',
+    scenarioHelpText: 'You can provide a `.PRO` on each row. Choose above whether the `.PRO` and `.PRN` are shared across the form or individual per scenario.',
+    scenarioNameLabel: 'Scenario name', scenarioNameTooltip: 'Name used in charts and results', scenarioHeightsShort: 'Heights', scenarioHeightsTooltip: 'Height of each element; use spaces between values and * to flip the phase',
+    scenarioAntennaLabel: 'Antenna', scenarioAntennaTooltip: 'Antenna model for this scenario', scenarioPolarizationTooltip: 'Polarization calculated for this scenario',
+    scenarioProfileLabel: '.PRO profile', scenarioProfileTooltip: 'Terrain profile used in this scenario', topBlockPlaceholder: 'top block', scenarioPrnStatLabel: '.PRN statistics', scenarioPrnTooltip: 'Arrival-angle statistics', filePlaceholder: 'file',
+    scenarioDefaultPrnLabel: 'Default PRN', scenarioDefaultPrnTooltip: 'Default PRN selected for this scenario', selectGeneric: 'Select',
+    comparisonWithScenarioA: 'Comparison with scenario A', maxDifference: 'MAXIMUM DIFFERENCE', peakDifference: 'PEAK DIFFERENCE', integratedAvgDiff: 'INTEGRATED AVG. DIFF.',
+    peakOfPattern: 'PATTERN PEAK', peakAngleLabel: 'PEAK ANGLE', integratedAverageLabel: 'INTEGRATED AVERAGE', beamwidth3db: '−3 dB BEAMWIDTH', profilePointsLabel: 'PROFILE POINTS', unitNotInformed: 'unit not provided',
+    distanceAxis: 'Distance (m)', altitudeAxis: 'Altitude (m)', pointsWord: 'points', compatibleBand: 'compatible band', projectDefault: 'project default',
+    openSourceCollab: 'OPEN SOURCE COLLABORATION',
+    heroEyebrow: 'OPEN SOURCE PROJECT', heroMaintainedBy: 'Project maintained by', heroDevContributions: 'Development and technical contributions:', heroAuthorBio: 'Ham radio operator, PhD from IFSC/USP, works with Large Language Models at UFSCar and takes part in information-security and CTF competitions with Epic Leet.', heroOriginalProject: 'Original project on GitHub ↗', heroWebIntegration: 'Web version integration:', heroWebAuthorBio: 'Systems analyst and ham radio operator, responsible for turning OpenHFTA into a modern web application, with an API, graphical interface, comparative analyses, metrics, and result visualization.',
+    footerMaintained: 'Project maintained by Rio DX Group · Technical development:', footerWebIntegration: 'Web integration: Fernando Fernandes —',
+  },
+  es: {
+    language: 'Idioma', accessibleColors: 'Colores accesibles', accessiblePatterns: 'Líneas y símbolos', online: 'núcleo Fortran conectado',
+    heroTitle: 'Vea cómo el terreno', heroTitleEm: 'moldea la señal.', heroLede: 'Cargue un perfil de terreno y explore el patrón de elevación de su antena en segundos.',
+    helpImprove: 'Ayude a mejorar OpenHFTA', feedbackBanner: '¿Encontró algo extraño o tiene una sugerencia? Su experiencia ayuda a que la herramienta sea más útil para toda la comunidad.', sendSuggestion: 'Enviar sugerencia',
+    configuration: 'Configuración', defineScenario: 'Defina el escenario de análisis', explainFields: 'Explicar los campos del formulario', uploadProfile: 'Suelte aquí su perfil .PRO', browseComputer: 'o haga clic para buscar en el equipo',
+    frequency: 'Frecuencia', units: 'Unidad', meters: 'Metros', feet: 'Pies', antennaHeights: 'Alturas de la antena', antennaType: 'Tipo de antena', polarization: 'Polarización', soilPermittivity: 'Constante dieléctrica del suelo', soilConductivity: 'Conductividad del suelo (S/m)', towerOffset: 'Desplazamiento de la torre',
+    includeDiffraction: 'Incluir difracción en el cálculo', compareScenarios: 'Comparar escenarios', calculate: 'Ejecutar análisis', calculating: 'Calculando...',
+    result: 'Resultado', waitingAnalysis: 'Esperando un análisis', patternCalculated: 'Patrón calculado por el núcleo HFTA', comparisonCalculated: 'Comparación calculada por el núcleo HFTA', processing: 'Procesando análisis…',
+    terrainProfile: 'PERFIL DEL TERRENO', rayTraceCore: 'TRAZADO DE RAYOS DEL NÚCLEO', export: 'EXPORTAR', emptyTitle: 'Su patrón aparecerá aquí', emptyText: 'Complete la configuración y ejecute el primer análisis.',
+    elevation: 'Elevación (°)', elevationStats: 'Estadística de elevación (%)', height: 'Altura (m)', distance: 'Distancia (m)', gain: 'Ganancia (dB)',
+    noDiffraction: 'Difracción desactivada', diffraction: 'Difracción incluida', automaticReading: 'LECTURA AUTOMÁTICA', modelLimits: 'LÍMITES DEL MODELO',
+    explainResult: '✦ Explicar resultado con IA', interpreting: 'Interpretando...', quickGuide: 'GUÍA RÁPIDA', close: 'Cerrar', helpTitle: '¿Qué significa cada campo?', helpIntro: 'Estos parámetros describen un análisis del patrón de elevación de una antena HF sobre un perfil del terreno. El núcleo calcula internamente en pies, pero puede introducir e interpretar los valores en metros.', helpTip: 'Para comenzar', rayHelpTitle: '¿Cómo se leen las trayectorias?', rayHelpIntro: 'El gráfico muestra trayectorias geométricas calculadas sobre el perfil. La línea representa el recorrido; por sí sola no es una medición de potencia recibida.', rayTip: 'Interacciones del gráfico',
+    feedbackTitle: 'Cuéntenos cómo podemos mejorar', feedbackIntro: 'Las sugerencias, correcciones e ideas para nuevas funciones son bienvenidas. Si desea una respuesta, indique su correo; se usará únicamente para responder a este mensaje.',
+    optionalName: 'Nombre (opcional)', replyEmail: 'Correo electrónico de respuesta', subject: 'Asunto', message: 'Mensaje', sendMessage: 'Enviar mensaje', sending: 'Enviando…', securityCheck: 'Verificación de seguridad para evitar mensajes automáticos.', newSuggestion: 'Enviar otra sugerencia',
+    footer: 'preservando la inteligencia de HFTA para sistemas modernos',
+    errProfileRequired: 'Seleccione un archivo .PRO antes de analizar.', errSharedProfileRequired: 'Seleccione un .PRO compartido en el formulario.', errAllScenarioProfiles: 'Indique un .PRO en todos los escenarios.', errSharedPrnRequired: 'Indique un archivo .PRN compartido o seleccione un PRN predeterminado.', errAllScenarioPrns: 'Indique un .PRN en todos los escenarios o seleccione un PRN predeterminado para cada uno.',
+    errAnalysisFailed: 'No fue posible ejecutar el análisis.', errApiGeneric: 'Error de comunicación con la API.', errAiExplain: 'No fue posible obtener la explicación de la IA.', errAiFailed: 'Fallo al consultar la IA.', errFeedbackSend: 'No fue posible enviar su mensaje.', feedbackThanksDefault: '¡Gracias por colaborar! Su mensaje fue enviado.',
+    errExportPrn: 'Cargue su propio archivo .PRN o seleccione un PRN predeterminado del proyecto.', errExportFailed: 'No fue posible generar la exportación.', errProfileIndividualMode: 'El PRO está en modo individual. Seleccione el archivo dentro de uno de los escenarios.', errPrnIndividualMode: 'El PRN está en modo individual. Seleccione el archivo dentro de uno de los escenarios.',
+    upToFourScenarios: 'Hasta cuatro escenarios', sharedPrn: 'PRN compartido', individualPrn: 'PRN individual', sharedProfile: 'PRO compartido', individualProfile: 'PRO individual', addScenario: '+ agregar',
+    scenarioHelpText: 'Puede indicar un `.PRO` en cada fila. Elija arriba si el `.PRO` y el `.PRN` serán compartidos por el formulario o individuales por escenario.',
+    scenarioNameLabel: 'Nombre del escenario', scenarioNameTooltip: 'Nombre usado en los gráficos y resultados', scenarioHeightsShort: 'Alturas', scenarioHeightsTooltip: 'Altura de cada elemento; use espacios entre valores y * para invertir la fase',
+    scenarioAntennaLabel: 'Antena', scenarioAntennaTooltip: 'Modelo de antena de este escenario', scenarioPolarizationTooltip: 'Polarización calculada para este escenario',
+    scenarioProfileLabel: 'Perfil .PRO', scenarioProfileTooltip: 'Perfil de terreno usado en este escenario', topBlockPlaceholder: 'bloque superior', scenarioPrnStatLabel: 'Estadística .PRN', scenarioPrnTooltip: 'Estadística de los ángulos de llegada', filePlaceholder: 'archivo',
+    scenarioDefaultPrnLabel: 'PRN predeterminado', scenarioDefaultPrnTooltip: 'PRN predeterminado seleccionado para este escenario', selectGeneric: 'Seleccione',
+    comparisonWithScenarioA: 'Comparación con el escenario A', maxDifference: 'DIFERENCIA MÁXIMA', peakDifference: 'DIFERENCIA DE PICO', integratedAvgDiff: 'DIF. MEDIA INTEGRADA',
+    peakOfPattern: 'PICO DEL PATRÓN', peakAngleLabel: 'ÁNGULO DEL PICO', integratedAverageLabel: 'MEDIA INTEGRADA', beamwidth3db: 'ANCHO DE HAZ −3 dB', profilePointsLabel: 'PUNTOS DEL PERFIL', unitNotInformed: 'unidad no informada',
+    distanceAxis: 'Distancia (m)', altitudeAxis: 'Altitud (m)', pointsWord: 'puntos', compatibleBand: 'banda compatible', projectDefault: 'predeterminado del proyecto',
+    openSourceCollab: 'COLABORACIÓN OPEN SOURCE',
+    heroEyebrow: 'PROYECTO OPEN SOURCE', heroMaintainedBy: 'Proyecto mantenido por', heroDevContributions: 'Desarrollo y contribuciones técnicas:', heroAuthorBio: 'Radioaficionado, doctor por el IFSC/USP, trabaja con Large Language Models en la UFSCar y participa en competiciones de seguridad de la información y CTF con Epic Leet.', heroOriginalProject: 'Proyecto original en GitHub ↗', heroWebIntegration: 'Integración de la versión web:', heroWebAuthorBio: 'Analista de sistemas y radioaficionado, responsable de transformar OpenHFTA en una aplicación web moderna, con API, interfaz gráfica, análisis comparativos, métricas y visualización de resultados.',
+    footerMaintained: 'Proyecto mantenido por Rio DX Group · Desarrollo técnico:', footerWebIntegration: 'Integración web: Fernando Fernandes —',
+  },
+}
+
+function initialLocale(): Locale {
+  const saved = window.localStorage.getItem('openhfta-locale')
+  return saved === 'en' || saved === 'es' || saved === 'pt-BR' ? saved : 'pt-BR'
+}
 
 const DEFAULT_PALETTE: ColorPalette = { rays: { direct: '#287bb0', reflected: '#78b7d9', diffracted: '#174f91', reflected_diffracted: '#f2a65a', double_diffracted: '#102f59', reflected_double_diffracted: '#c58cff' }, scenarios: ['#f2a65a', '#6bd48b', '#78b7d9', '#c58cff'], flatScenarios: ['#c76b5a', '#4f9f78', '#5f8fa8', '#9a6bc0'], terrain: '#171717', flat: '#d93636', aoa: '#d92fc4', event: '#f2a65a', corner: '#ff594f', antenna: '#f2a65a' }
 const COLORBLIND_PALETTE: ColorPalette = { rays: { direct: '#0072b2', reflected: '#56b4e9', diffracted: '#d55e00', reflected_diffracted: '#e69f00', double_diffracted: '#cc79a7', reflected_double_diffracted: '#f0e442' }, scenarios: ['#0072b2', '#e69f00', '#009e73', '#cc79a7'], flatScenarios: ['#d55e00', '#56b4e9', '#f0e442', '#0072b2'], terrain: '#222222', flat: '#d55e00', aoa: '#009e73', event: '#e69f00', corner: '#cc79a7', antenna: '#0072b2' }
 const SCENARIO_DASHES = ['solid', 'dash', 'dot', 'dashdot'] as const
 const SCENARIO_SYMBOLS = ['circle', 'square', 'diamond', 'triangle-up'] as const
 const RAY_DASHES: Record<string, 'solid' | 'dash' | 'dot' | 'dashdot'> = { direct: 'solid', reflected: 'dash', diffracted: 'dot', reflected_diffracted: 'dashdot', double_diffracted: 'dashdot', reflected_double_diffracted: 'dashdot' }
-const RAY_LABELS: Record<string, string> = { direct: 'Direto', reflected: 'Reflexão', diffracted: 'Difração', reflected_diffracted: 'Reflexão + difração', double_diffracted: 'Difração dupla', reflected_double_diffracted: 'Reflexão + dupla difração' }
+const RAY_LABELS_BY_LOCALE: Record<Locale, Record<string, string>> = {
+  'pt-BR': { direct: 'Direto', reflected: 'Reflexão', diffracted: 'Difração', reflected_diffracted: 'Reflexão + difração', double_diffracted: 'Difração dupla', reflected_double_diffracted: 'Reflexão + dupla difração' },
+  en: { direct: 'Direct', reflected: 'Reflection', diffracted: 'Diffraction', reflected_diffracted: 'Reflection + diffraction', double_diffracted: 'Double diffraction', reflected_double_diffracted: 'Reflection + double diffraction' },
+  es: { direct: 'Directo', reflected: 'Reflexión', diffracted: 'Difracción', reflected_diffracted: 'Reflexión + difracción', double_diffracted: 'Doble difracción', reflected_double_diffracted: 'Reflexión + doble difracción' },
+}
+const RAY_UI_BY_LOCALE: Record<Locale, { title: string; distance: string; height: string; elevation: string; visible: string; calculated: string; profile: string; explain: string; departureAngle: string; antennaGain: string; terrainPointLabel: string; reflectionPointHover: string; directionChangeLabel: string; antennaLabel: string; terrainLabel: string }> = {
+  'pt-BR': { title: 'TRAÇADO DE RAIOS', distance: 'Distância (km)', height: 'Altura (m)', elevation: 'Elevação (°)', visible: 'trajetórias visíveis', calculated: 'calculadas', profile: 'perfil', explain: 'Explicar os tipos de trajetória', departureAngle: 'ângulo de saída', antennaGain: 'ganho da antena', terrainPointLabel: 'Ponto no terreno', reflectionPointHover: 'Ponto de reflexão/difração', directionChangeLabel: 'Mudança de direção', antennaLabel: 'Antena', terrainLabel: 'TERRENO' },
+  en: { title: 'RAY TRACE', distance: 'Distance (km)', height: 'Height (m)', elevation: 'Elevation (°)', visible: 'visible paths', calculated: 'calculated', profile: 'profile', explain: 'Explain path types', departureAngle: 'departure angle', antennaGain: 'antenna gain', terrainPointLabel: 'Terrain point', reflectionPointHover: 'Reflection/diffraction point', directionChangeLabel: 'Direction change', antennaLabel: 'Antenna', terrainLabel: 'TERRAIN' },
+  es: { title: 'TRAZADO DE RAYOS', distance: 'Distancia (km)', height: 'Altura (m)', elevation: 'Elevación (°)', visible: 'trayectorias visibles', calculated: 'calculadas', profile: 'perfil', explain: 'Explicar los tipos de trayectoria', departureAngle: 'ángulo de salida', antennaGain: 'ganancia de la antena', terrainPointLabel: 'Punto en el terreno', reflectionPointHover: 'Punto de reflexión/difracción', directionChangeLabel: 'Cambio de dirección', antennaLabel: 'Antena', terrainLabel: 'TERRENO' },
+}
+const RAY_LABELS = RAY_LABELS_BY_LOCALE['pt-BR']
 const RAY_KINDS = Object.keys(RAY_LABELS)
 
 function gainAt(angles: number[], pattern: number[], angle: number) {
@@ -65,9 +183,10 @@ function scenarioDisplayLabel(scenario: Scenario) {
   return `${scenario.name} · ${scenario.heights_input || scenario.configuration?.antenna_heights_m?.map(height => height.toFixed(1)).join(' ') || 'altura n/d'} m · ${scenario.antenna_type || 'antena n/d'} · ${scenario.polarization === 'vertical' ? 'POL: V' : 'POL: H'} · PRN: ${scenario.prn_name || 'compartilhado'} · PRO: ${scenario.profile_name || 'compartilhado'}`
 }
 
-function ScenarioRayTrace({ scenario, index, angles, rayKinds, onToggle, onHelp, accessibleColors, accessiblePatterns }: { scenario: Scenario; index: number; angles: number[]; rayKinds: Record<string, boolean>; onToggle: (kind: string) => void; onHelp: () => void; accessibleColors: boolean; accessiblePatterns: boolean }) {
+function ScenarioRayTrace({ scenario, index, angles, rayKinds, onToggle, onHelp, accessibleColors, accessiblePatterns, locale }: { scenario: Scenario; index: number; angles: number[]; rayKinds: Record<string, boolean>; onToggle: (kind: string) => void; onHelp: () => void; accessibleColors: boolean; accessiblePatterns: boolean; locale: Locale }) {
   if (!scenario.ray_trace?.available || !scenario.profile) return null
-  const labels = RAY_LABELS
+  const labels = RAY_LABELS_BY_LOCALE[locale]
+  const rayUi = RAY_UI_BY_LOCALE[locale]
   const palette = accessibleColors ? COLORBLIND_PALETTE : DEFAULT_PALETTE
   const colors = palette.rays
   const count = Math.min(scenario.profile.points, scenario.profile.distances_m.length, scenario.profile.heights_m.length)
@@ -83,10 +202,10 @@ function ScenarioRayTrace({ scenario, index, angles, rayKinds, onToggle, onHelp,
   const visible = paths.map(path => ({ path, points: clip(path) })).filter(item => item.points.length > 1 && (item.path.kind !== 'double_diffracted' || item.points.some(([x, y]) => Math.abs(y - terrainAt(x)) < 4)))
   const gains = visible.map(({ path }) => gainAt(angles, antennaPattern, path.angle_deg))
   const lowGain = Math.min(...gains, 0); const highGain = Math.max(...gains, 1)
-  const data: any[] = visible.map(({ path, points }, pathIndex) => { const gain = gains[pathIndex]; const weight = highGain === lowGain ? .45 : .14 + .38 * ((gain - lowGain) / (highGain - lowGain)); return { x: points.map(p => p[0] / 1000), y: points.map(p => p[1]), type: 'scatter', mode: 'lines', name: labels[path.kind], legendgroup: path.kind, showlegend: visible.findIndex(item => item.path.kind === path.kind) === pathIndex, line: { color: colors[path.kind], width: .65 + weight, opacity: weight, dash: accessiblePatterns ? RAY_DASHES[path.kind] : 'solid' }, hovertemplate: `${labels[path.kind]}<br>ângulo de saída: ${path.angle_deg.toFixed(2)}°<br>ganho da antena: ${gain.toFixed(1)} dB<br>%{x:.2f} km · %{y:.1f} m<extra></extra>` } })
-  data.push({ x: distances.map(x => x / 1000), y: terrain, type: 'scatter', mode: 'lines+markers', name: 'TERRENO', line: { color: palette.terrain, width: 2 }, marker: { color: palette.terrain, size: 3 }, fill: 'tozeroy', fillcolor: 'rgba(194,174,162,.42)' })
+  const data: any[] = visible.map(({ path, points }, pathIndex) => { const gain = gains[pathIndex]; const weight = highGain === lowGain ? .45 : .14 + .38 * ((gain - lowGain) / (highGain - lowGain)); return { x: points.map(p => p[0] / 1000), y: points.map(p => p[1]), type: 'scatter', mode: 'lines', name: labels[path.kind], legendgroup: path.kind, showlegend: visible.findIndex(item => item.path.kind === path.kind) === pathIndex, line: { color: colors[path.kind], width: .65 + weight, opacity: weight, dash: accessiblePatterns ? RAY_DASHES[path.kind] : 'solid' }, hovertemplate: `${labels[path.kind]}<br>${rayUi.departureAngle}: ${path.angle_deg.toFixed(2)}°<br>${rayUi.antennaGain}: ${gain.toFixed(1)} dB<br>%{x:.2f} km · %{y:.1f} m<extra></extra>` } })
+  data.push({ x: distances.map(x => x / 1000), y: terrain, type: 'scatter', mode: 'lines+markers', name: rayUi.terrainLabel, line: { color: palette.terrain, width: 2 }, marker: { color: palette.terrain, size: 3 }, fill: 'tozeroy', fillcolor: 'rgba(194,174,162,.42)' })
   data.push({ x: [0, end / 1000], y: [0, 10], yaxis: 'y2', type: 'scatter', mode: 'lines', line: { color: 'transparent', width: 0 }, opacity: 0, showlegend: false, hoverinfo: 'skip' })
-  return <article className="scenario-ray"><div className="terrain-heading"><small>TRAÇADO DE RAIOS · {scenarioDisplayLabel(scenario)}</small><span>{visible.length} trajetórias visíveis · {scenario.ray_trace.paths.length} calculadas · perfil {(end / 1000).toFixed(2)} km</span><button type="button" className="ray-help-button" onClick={onHelp} aria-label="Explicar os tipos de trajetória">?</button></div><div className="ray-controls">{Object.entries(labels).map(([kind, label]) => <button type="button" key={`${index}-${kind}`} className={rayKinds[kind] ? 'ray-toggle active' : 'ray-toggle'} onClick={() => onToggle(kind)} style={{ '--ray-color': colors[kind] } as CSSProperties}><i />{label} <small>{scenario.ray_trace?.counts[kind] || 0}</small></button>)}</div><div className="ray-plot-wrap"><div className="degree-scale" aria-label="Elevação de 0 a 10 graus">{Array.from({ length: 11 }, (_, degree) => <span key={degree}>{degree}°</span>)}</div><Plot className="ray-chart" data={data} layout={{ autosize: true, margin: { l: 62, r: 100, t: 42, b: 54 }, title: { text: 'RAY TRACE OVER TERRAIN', font: { size: 13, color: '#7dff9b' } }, paper_bgcolor: 'transparent', plot_bgcolor: 'transparent', font: { color: '#9aabb5', family: 'Inter, sans-serif' }, xaxis: { title: 'Distância (km)', range: [0, axisEnd / 1000], dtick: .5, gridcolor: '#263943' }, yaxis: { title: 'Altura (m)', range: [Math.max(0, Math.min(...terrain) - 30), 1000], dtick: 100, gridcolor: '#263943' }, yaxis2: { title: 'Elevação (°)', overlaying: 'y', anchor: 'x', side: 'right', range: [0, 10], tickmode: 'linear', dtick: 1, ticksuffix: '°', showticklabels: false, showline: false, showgrid: false, zeroline: false, ticks: '' }, legend: { orientation: 'h' as const, y: -.15 } }} config={{ responsive: true, displaylogo: false }} useResizeHandler style={{ width: '100%', height: '100%' }} /></div></article>
+  return <article className="scenario-ray"><div className="terrain-heading"><small>{rayUi.title} · {scenarioDisplayLabel(scenario)}</small><span>{visible.length} {rayUi.visible} · {scenario.ray_trace.paths.length} {rayUi.calculated} · {rayUi.profile} {(end / 1000).toFixed(2)} km</span><button type="button" className="ray-help-button" onClick={onHelp} aria-label={rayUi.explain}>?</button></div><div className="ray-controls">{Object.entries(labels).map(([kind, label]) => <button type="button" key={`${index}-${kind}`} className={rayKinds[kind] ? 'ray-toggle active' : 'ray-toggle'} onClick={() => onToggle(kind)} style={{ '--ray-color': colors[kind] } as CSSProperties}><i />{label} <small>{scenario.ray_trace?.counts[kind] || 0}</small></button>)}</div><div className="ray-plot-wrap"><div className="degree-scale" aria-label={rayUi.elevation}>{Array.from({ length: 11 }, (_, degree) => <span key={degree}>{degree}°</span>)}</div><Plot className="ray-chart" data={data} layout={{ autosize: true, margin: { l: 62, r: 100, t: 42, b: 54 }, title: { text: 'RAY TRACE OVER TERRAIN', font: { size: 13, color: '#7dff9b' } }, paper_bgcolor: 'transparent', plot_bgcolor: 'transparent', font: { color: '#9aabb5', family: 'Inter, sans-serif' }, xaxis: { title: rayUi.distance, range: [0, axisEnd / 1000], dtick: .5, gridcolor: '#263943' }, yaxis: { title: rayUi.height, range: [Math.max(0, Math.min(...terrain) - 30), 1000], dtick: 100, gridcolor: '#263943' }, yaxis2: { title: rayUi.elevation, overlaying: 'y', anchor: 'x', side: 'right', range: [0, 10], tickmode: 'linear', dtick: 1, ticksuffix: '°', showticklabels: false, showline: false, showgrid: false, zeroline: false, ticks: '' }, legend: { orientation: 'h' as const, y: -.15 } }} config={{ responsive: true, displaylogo: false }} useResizeHandler style={{ width: '100%', height: '100%' }} /></div></article>
 }
 
 const helpItems = [
@@ -124,6 +243,80 @@ const rayHelpItems = [
   ['Como ler o gráfico', 'As linhas mostram a geometria do caminho, não a potência recebida. A espessura/opacidade prioriza trajetórias com maior ganho estimado; os marcadores mostram interações com o terreno.'],
 ]
 
+const helpItemsByLocale: Record<Locale, string[][]> = {
+  'pt-BR': helpItems,
+  en: [
+    ['.PRO profile', 'File containing terrain distances and elevations between the station and the analyzed horizon. It is the geometric basis of the calculation.'],
+    ['Elevation statistics (.PRN)', 'File containing the percentage distribution of signal arrival angles for each band. The column matching the selected frequency is shown as bars and used to calculate the Figure of Merit.'],
+    ['Frequency', 'Enter a band such as 20m, or a frequency in MHz such as 14.2. Frequency changes wavelength, ground reflection, and diffraction.'],
+    ['Polarization', 'Horizontal (H) uses the TE reflection coefficient. Vertical (V) uses the TM coefficient and the UTD 2D hard/TM combination. External validation is still required.'],
+    ['Units', 'Units used for antenna-height and tower-offset fields. Choose meters or feet; conversion to the Fortran core is automatic.'],
+    ['Antenna heights', 'Height of each antenna element above the terrain. Separate elements with spaces. An asterisk after a height indicates out-of-phase drive, for example 10*.'],
+    ['Antenna type', 'Antenna model used by OpenHFTA: dipole or directional arrays with 2, 3, 4, 5, 6, or 8 elements. This changes the calculated elevation pattern.'],
+    ['Ground dielectric constant', 'Relative ability of the ground to store electrical energy. It is used when calculating signal reflection. The default value 13 is a common approximation.'],
+    ['Ground conductivity (S/m)', 'Ground ability to conduct current. More conductive ground generally reflects the signal differently. The default is 0.005 S/m.'],
+    ['Tower offset', 'Moves the tower starting point backward along the profile using the selected unit. Use it to test another station position on the same terrain.'],
+    ['Include diffraction', 'Keeps terrain effects on HF propagation enabled. Normally leave it on; disable it only to compare diffraction influence.'],
+    ['Compare scenarios and azimuths', 'Runs two to four scenarios. Reuse a profile to compare antennas and heights, or select up to four .PRO files for different azimuths.'],
+    ['RMSE', 'Root mean square error between two curves, in dB. It summarizes the average difference across all angles; lower RMSE means more similar curves.'],
+    ['Maximum difference', 'Largest absolute difference between the two curves at any elevation angle. It shows the worst point-to-point separation, in dB.'],
+    ['Peak difference', 'Difference between the highest gains of the two scenarios, in dB. A positive value means the compared scenario has the higher peak.'],
+    ['Integrated average difference', 'Difference between integrated average gains across the analyzed angular range, in dB. It compares overall performance, not just the peak.'],
+    ['Pattern peak', 'Highest gain found on the elevation curve, reported in dB. It represents the antenna response peak for the analyzed profile.'],
+    ['Peak angle', 'Elevation angle where the pattern gain is highest. Lower angles generally favor long-distance HF paths.'],
+    ['Integrated average', 'Average gain calculated across the full analyzed angular range. It summarizes overall curve performance.'],
+    ['−3 dB beamwidth', 'Main-beam angular width measured 3 dB below the peak. A narrower beam concentrates energy over a smaller angle range.'],
+    ['Profile points', 'Number of distance and elevation points actually used in the calculation and shown in the terrain chart.'],
+    ['Figure of Merit', 'Metric weighted by the .PRN elevation-statistics file. It combines antenna gain with arrival-angle probability; higher is better for the statistical scenario.'],
+  ],
+  es: [
+    ['Perfil .PRO', 'Archivo con las distancias y elevaciones del terreno entre la estación y el horizonte analizado. Es la base geométrica del cálculo.'],
+    ['Estadística de elevación (.PRN)', 'Archivo con la distribución porcentual de los ángulos de llegada de las señales para cada banda. La columna compatible con la frecuencia seleccionada aparece como barras y se usa para calcular el Figure of Merit.'],
+    ['Frecuencia', 'Indique una banda, como 20m, o una frecuencia en MHz, como 14.2. La frecuencia cambia la longitud de onda, la reflexión del suelo y la difracción.'],
+    ['Polarización', 'La horizontal (H) usa el coeficiente de reflexión TE. La vertical (V) usa el coeficiente TM y la combinación hard/TM del UTD 2D. Sigue siendo necesaria la validación con referencias externas.'],
+    ['Unidad', 'Unidad usada en los campos de altura y desplazamiento de la torre. Elija metros o pies; la conversión al núcleo Fortran es automática.'],
+    ['Alturas de la antena', 'Altura de cada elemento de la antena sobre el terreno. Separe los elementos con espacios. Un asterisco después de la altura indica alimentación fuera de fase, por ejemplo 10*.'],
+    ['Tipo de antena', 'Modelo de antena usado por OpenHFTA: dipolo o arreglos directivos de 2, 3, 4, 5, 6 u 8 elementos. Esto cambia el patrón de elevación calculado.'],
+    ['Constante dieléctrica del suelo', 'Capacidad relativa del suelo para almacenar energía eléctrica. Se usa en el cálculo de la reflexión de la señal. El valor predeterminado 13 es una aproximación común.'],
+    ['Conductividad del suelo (S/m)', 'Capacidad del suelo para conducir corriente. Los suelos más conductivos normalmente reflejan la señal de forma diferente. El valor predeterminado es 0.005 S/m.'],
+    ['Desplazamiento de la torre', 'Mueve el punto inicial de la torre hacia atrás en el perfil usando la unidad elegida. Úselo para probar otra posición de la estación en el mismo terreno.'],
+    ['Incluir difracción', 'Mantiene habilitado el efecto del terreno sobre la propagación HF. Normalmente déjelo activado; desactívelo solo para comparar la influencia de la difracción.'],
+    ['Comparar escenarios y azimuts', 'Ejecuta de dos a cuatro escenarios. Puede reutilizar un perfil para comparar antenas y alturas, o seleccionar hasta cuatro archivos .PRO para distintos azimuts.'],
+    ['RMSE', 'Error cuadrático medio entre dos curvas, en dB. Resume la diferencia media en todos los ángulos; un RMSE menor indica curvas más parecidas.'],
+    ['Diferencia máxima', 'Mayor diferencia absoluta entre las dos curvas en cualquier ángulo de elevación. Muestra la separación puntual más grande, en dB.'],
+    ['Diferencia de pico', 'Diferencia entre las mayores ganancias de los dos escenarios, en dB. Un valor positivo indica que el escenario comparado tiene el pico mayor.'],
+    ['Diferencia media integrada', 'Diferencia entre las ganancias medias integradas en todo el rango angular analizado, en dB. Compara el rendimiento general, no solo el pico.'],
+    ['Pico del patrón', 'Mayor ganancia encontrada en la curva de elevación, expresada en dB. Representa la mejor respuesta de la antena para el perfil analizado.'],
+    ['Ángulo del pico', 'Ángulo de elevación donde la ganancia del patrón es máxima. Los ángulos bajos normalmente favorecen los contactos HF de larga distancia.'],
+    ['Media integrada', 'Ganancia media calculada en todo el rango de ángulos analizado. Resume el rendimiento general de la curva.'],
+    ['Ancho de haz −3 dB', 'Ancho angular del haz principal medido 3 dB por debajo del pico. Un haz más estrecho concentra la energía en un rango menor de ángulos.'],
+    ['Puntos del perfil', 'Cantidad de puntos de distancia y elevación usados en el cálculo y mostrados en el gráfico del terreno.'],
+    ['Figure of Merit', 'Métrica ponderada por el archivo .PRN de estadística de elevación. Combina la ganancia de la antena con la probabilidad de los ángulos de llegada; cuanto mayor, mejor.'],
+  ],
+}
+
+const rayHelpItemsByLocale: Record<Locale, string[][]> = {
+  'pt-BR': rayHelpItems,
+  en: [
+    ['Direct', 'Path leaving the antenna and reaching the horizon without touching the terrain. It is the geometric-visibility reference.'],
+    ['Reflection', 'Path that touches the terrain and changes direction according to local geometry. The core also applies the Fresnel coefficient, which changes amplitude and phase.'],
+    ['Diffraction', 'Path passing an edge or terrain feature calculated with the UTD model. It allows propagation beyond an obstruction.'],
+    ['Reflection + diffraction', 'Composite path with one reflection and one diffraction. It should not be counted as reflection or diffraction alone.'],
+    ['Double diffraction', 'Path passing two terrain edges in sequence. Both diffraction points are preserved in the trace.'],
+    ['Reflection + double diffraction', 'Composite path with two diffractions and one reflection.'],
+    ['Reading the chart', 'Lines show path geometry, not received power. Thickness and opacity prioritize paths with higher estimated gain; markers show terrain interactions.'],
+  ],
+  es: [
+    ['Directo', 'Trayectoria que sale de la antena y llega al horizonte sin tocar el relieve. Es la referencia de visibilidad geométrica.'],
+    ['Reflexión', 'Trayectoria que toca el terreno y cambia de dirección según la geometría local. El núcleo también aplica el coeficiente de Fresnel, que modifica la amplitud y la fase.'],
+    ['Difracción', 'Trayectoria que pasa por un borde o relieve y se calcula con el modelo UTD. Permite la propagación más allá de una obstrucción.'],
+    ['Reflexión + difracción', 'Trayectoria compuesta con una reflexión y una difracción. No debe contarse solo como reflexión o solo como difracción.'],
+    ['Doble difracción', 'Trayectoria que pasa sucesivamente por dos bordes del relieve. Los dos puntos de difracción se conservan en el trazado.'],
+    ['Reflexión + doble difracción', 'Trayectoria compuesta con dos difracciones y una reflexión.'],
+    ['Cómo leer el gráfico', 'Las líneas muestran la geometría de la trayectoria, no la potencia recibida. El grosor y la opacidad priorizan las trayectorias con mayor ganancia estimada; los marcadores muestran interacciones con el terreno.'],
+  ],
+}
+
 const API_URL = import.meta.env.VITE_API_URL || (
   ['5173', '5174'].includes(window.location.port)
     ? `${window.location.protocol}//${window.location.hostname}:8000`
@@ -137,6 +330,13 @@ const DEFAULT_PRN_OPTIONS = [
 ]
 
 function App() {
+  const [locale, setLocale] = useState<Locale>(initialLocale)
+  const t = (key: string) => UI_TEXT[locale][key] || UI_TEXT['pt-BR'][key] || key
+  const tr = (pt: string, en: string, es: string) => locale === 'en' ? en : locale === 'es' ? es : pt
+  const scenarioName = (index: number) => tr(`Cenário ${String.fromCharCode(65 + index)}`, `Scenario ${String.fromCharCode(65 + index)}`, `Escenario ${String.fromCharCode(65 + index)}`)
+  const rayUi = RAY_UI_BY_LOCALE[locale]
+  const localizedHelpItems = helpItemsByLocale[locale]
+  const localizedRayHelpItems = rayHelpItemsByLocale[locale]
   const [files, setFiles] = useState<File[]>([])
   const [aoaFile, setAoaFile] = useState<File | null>(null)
   const [prnOptions, setPrnOptions] = useState<string[]>([])
@@ -154,8 +354,8 @@ function App() {
   const [prnMode, setPrnMode] = useState<'shared' | 'individual'>('shared')
   const [profileMode, setProfileMode] = useState<'shared' | 'individual'>('shared')
   const [scenarioConfigs, setScenarioConfigs] = useState<ScenarioConfig[]>([
-    { name: 'Cenário A', heights: '10', antenna_type: 'Dipole', polarization: 'horizontal' },
-    { name: 'Cenário B', heights: '10', antenna_type: 'Dipole', polarization: 'horizontal' },
+    { name: scenarioName(0), heights: '10', antenna_type: 'Dipole', polarization: 'horizontal' },
+    { name: scenarioName(1), heights: '10', antenna_type: 'Dipole', polarization: 'horizontal' },
   ])
   const [scenarioPrnFiles, setScenarioPrnFiles] = useState<(File | null)[]>([null, null])
   const [scenarioProfileFiles, setScenarioProfileFiles] = useState<(File | null)[]>([null, null])
@@ -171,7 +371,7 @@ function App() {
   const [showFeedback, setShowFeedback] = useState(false)
   const [feedbackName, setFeedbackName] = useState('')
   const [feedbackEmail, setFeedbackEmail] = useState('')
-  const [feedbackCategory, setFeedbackCategory] = useState('Sugestão')
+  const [feedbackCategory, setFeedbackCategory] = useState('suggestion')
   const [feedbackMessage, setFeedbackMessage] = useState('')
   const [feedbackStatus, setFeedbackStatus] = useState('')
   const [feedbackError, setFeedbackError] = useState('')
@@ -209,10 +409,10 @@ function App() {
     const target = event.target as HTMLElement
     if (compareMode && profileMode === 'individual' && target.closest('.file-drop')) {
       event.preventDefault()
-      setError('O PRO está no modo individual. Selecione o arquivo dentro de um dos cenários.')
+      setError(t('errProfileIndividualMode'))
     } else if (compareMode && prnMode === 'individual' && target.closest('.aoa-upload')) {
       event.preventDefault()
-      setError('O PRN está no modo individual. Selecione o arquivo dentro de um dos cenários.')
+      setError(t('errPrnIndividualMode'))
     }
   }
 
@@ -224,6 +424,7 @@ function App() {
 
   useEffect(() => { window.localStorage.setItem('openhfta-colorblind-mode', String(colorblindMode)) }, [colorblindMode])
   useEffect(() => { window.localStorage.setItem('openhfta-accessible-patterns', String(accessiblePatterns)) }, [accessiblePatterns])
+  useEffect(() => { window.localStorage.setItem('openhfta-locale', locale); document.documentElement.lang = locale === 'pt-BR' ? 'pt-BR' : locale }, [locale])
 
   useEffect(() => {
     if (!showFeedback || !TURNSTILE_SITE_KEY) return
@@ -269,21 +470,9 @@ function App() {
     fetch(`${API_URL}/api/prns`).then(response => response.ok ? response.json() : { files: [] }).then(payload => setPrnOptions(payload.files?.length ? payload.files : DEFAULT_PRN_OPTIONS)).catch(() => setPrnOptions(DEFAULT_PRN_OPTIONS))
   }, [])
 
-  async function submit(event: FormEvent) {
-    event.preventDefault()
-    setError('')
+  function buildAnalysisForm(): FormData {
     const individualPrnMode = compareMode && prnMode === 'individual'
     const individualProfileMode = compareMode && profileMode === 'individual'
-    const scenarioPrnCount = scenarioConfigs.filter((scenario, index) => Boolean(scenario.prn_default || scenarioPrnFiles[index])).length
-    const scenarioHasPrn = individualPrnMode && scenarioPrnCount === scenarioConfigs.length
-    const scenarioProfileCount = scenarioProfileFiles.filter(Boolean).length
-    const hasCompleteScenarioProfiles = compareMode && scenarioProfileCount === scenarioConfigs.length
-    if (!compareMode && !file) { setError('Selecione um arquivo .PRO antes de analisar.'); return }
-    if (compareMode && !individualProfileMode && !file) { setError('Selecione um .PRO compartilhado no formulário.'); return }
-    if (compareMode && individualProfileMode && !hasCompleteScenarioProfiles) { setError('Informe um .PRO em todos os cenários.'); return }
-    if (!individualPrnMode && !aoaFile && !selectedPrn) { setError('Informe um arquivo .PRN compartilhado ou selecione um PRN padrão.'); return }
-    if (individualPrnMode && !scenarioHasPrn) { setError('Informe um .PRN em todos os cenários ou selecione um PRN padrão para cada um.'); return }
-    setLoading(true)
     const form = new FormData()
     if (compareMode) {
       const profileUploadIndexes = individualProfileMode ? scenarioProfileFiles.map((scenarioFile, index) => {
@@ -294,7 +483,7 @@ function App() {
       let prnUploadIndex = 0
       const configs = scenarioConfigs.map((scenario, index) => {
         const { prn_default, ...scenarioWithoutPrn } = scenario
-        const config: ScenarioConfig & { prn_upload_index?: number } = { ...scenarioWithoutPrn, name: scenario.name || `Cenário ${String.fromCharCode(65 + index)}` }
+        const config: ScenarioConfig & { prn_upload_index?: number } = { ...scenarioWithoutPrn, name: scenario.name || scenarioName(index) }
         if (individualPrnMode && prn_default) config.prn_default = prn_default
         if (individualProfileMode) (config as ScenarioConfig & { profile_upload_index?: number }).profile_upload_index = profileUploadIndexes[index]
         const customPrn = individualPrnMode ? scenarioPrnFiles[index] : null
@@ -305,7 +494,7 @@ function App() {
         return config
       })
       form.append('scenario_configs', JSON.stringify(configs))
-    } else form.append('profile', file)
+    } else if (file) form.append('profile', file)
     if (aoaFile) form.append('aoa_file', aoaFile)
     if (selectedPrn) form.append('aoa_default', selectedPrn)
     form.append('frequency', frequency)
@@ -317,14 +506,33 @@ function App() {
     form.append('soil_sigma', soilSigma)
     form.append('move_tower', moveTower)
     form.append('no_diffraction', String(noDiffraction))
+    return form
+  }
+
+  async function submit(event: FormEvent) {
+    event.preventDefault()
+    setError('')
+    const individualPrnMode = compareMode && prnMode === 'individual'
+    const individualProfileMode = compareMode && profileMode === 'individual'
+    const scenarioPrnCount = scenarioConfigs.filter((scenario, index) => Boolean(scenario.prn_default || scenarioPrnFiles[index])).length
+    const scenarioHasPrn = individualPrnMode && scenarioPrnCount === scenarioConfigs.length
+    const scenarioProfileCount = scenarioProfileFiles.filter(Boolean).length
+    const hasCompleteScenarioProfiles = compareMode && scenarioProfileCount === scenarioConfigs.length
+    if (!compareMode && !file) { setError(t('errProfileRequired')); return }
+    if (compareMode && !individualProfileMode && !file) { setError(t('errSharedProfileRequired')); return }
+    if (compareMode && individualProfileMode && !hasCompleteScenarioProfiles) { setError(t('errAllScenarioProfiles')); return }
+    if (!individualPrnMode && !aoaFile && !selectedPrn) { setError(t('errSharedPrnRequired')); return }
+    if (individualPrnMode && !scenarioHasPrn) { setError(t('errAllScenarioPrns')); return }
+    setLoading(true)
+    const form = buildAnalysisForm()
     try {
       const response = await fetch(`${API_URL}${compareMode ? '/api/compare' : '/api/analyze'}`, { method: 'POST', body: form })
       const payload = await response.json().catch(() => ({}))
-      if (!response.ok) throw new Error(payload.detail || 'Não foi possível executar a análise.')
+      if (!response.ok) throw new Error(payload.detail || t('errAnalysisFailed'))
       if (compareMode) { setCompareResult(payload); setResult(null) } else { setResult(payload); setCompareResult(null) }
       setAiExplanation(null); setAiError('')
     } catch (cause) {
-      setError(cause instanceof TypeError ? `Não foi possível conectar à API em ${API_URL}. Inicie o backend na porta 8000.` : cause instanceof Error ? cause.message : 'Erro de comunicação com a API.')
+      setError(cause instanceof TypeError ? tr(`Não foi possível conectar à API em ${API_URL}. Inicie o backend na porta 8000.`, `Could not connect to the API at ${API_URL}. Start the backend on port 8000.`, `No fue posible conectar con la API en ${API_URL}. Inicie el backend en el puerto 8000.`) : cause instanceof Error ? cause.message : t('errApiGeneric'))
     } finally { setLoading(false) }
   }
 
@@ -375,9 +583,9 @@ function App() {
     try {
       const response = await fetch(`${API_URL}/api/ai/explain`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ analysis: analysisForAI }) })
       const payload = await response.json().catch(() => ({}))
-      if (!response.ok) throw new Error(payload.detail || 'Não foi possível obter a explicação da IA.')
+      if (!response.ok) throw new Error(payload.detail || t('errAiExplain'))
       setAiExplanation(payload)
-    } catch (cause) { setAiError(cause instanceof Error ? cause.message : 'Falha ao consultar a IA.') }
+    } catch (cause) { setAiError(cause instanceof Error ? cause.message : t('errAiFailed')) }
     finally { setAiLoading(false) }
   }
 
@@ -396,14 +604,14 @@ function App() {
     try {
       const response = await fetch(`${API_URL}/api/feedback`, { method: 'POST', body: form })
       const payload = await response.json().catch(() => ({}))
-      if (!response.ok) throw new Error(payload.detail || 'Não foi possível enviar sua mensagem.')
-      setFeedbackStatus(payload.message || 'Obrigado pela colaboração! Sua mensagem foi enviada.')
+      if (!response.ok) throw new Error(payload.detail || t('errFeedbackSend'))
+      setFeedbackStatus(payload.message || t('feedbackThanksDefault'))
       setFeedbackSent(true)
       setFeedbackFormHidden(false)
       setFeedbackCountdown(10)
       setFeedbackName(''); setFeedbackEmail(''); setFeedbackMessage('')
     } catch (cause) {
-      setFeedbackError(cause instanceof Error ? cause.message : 'Não foi possível enviar sua mensagem.')
+      setFeedbackError(cause instanceof Error ? cause.message : t('errFeedbackSend'))
     } finally { setFeedbackLoading(false) }
   }
 
@@ -422,20 +630,43 @@ function App() {
 
   async function exportResult(format: string) {
     if (!file) return
-    if (!aoaFile && !selectedPrn) { setError('Envie um arquivo .PRN próprio ou selecione um PRN padrão do projeto.'); return }
+    if (!aoaFile && !selectedPrn) { setError(t('errExportPrn')); return }
     const form = new FormData()
     form.append('profile', file); form.append('frequency', frequency); form.append('units', units)
     form.append('heights', heights); form.append('antenna_type', antennaType); form.append('soil_epsr', soilEpsr)
     form.append('soil_sigma', soilSigma); form.append('move_tower', moveTower)
-    form.append('no_diffraction', String(noDiffraction)); form.append('polarization', polarization); form.append('export_format', format)
+    form.append('no_diffraction', String(noDiffraction)); form.append('polarization', polarization); form.append('export_format', format); form.append('locale', locale)
     if (aoaFile) form.append('aoa_file', aoaFile)
     if (selectedPrn) form.append('aoa_default', selectedPrn)
     let response: Response
     try { response = await fetch(`${API_URL}/api/analyze`, { method: 'POST', body: form }) }
-    catch { setError(`Não foi possível conectar à API em ${API_URL}.`); return }
-    if (!response.ok) { setError('Não foi possível gerar a exportação.'); return }
+    catch { setError(tr(`Não foi possível conectar à API em ${API_URL}.`, `Could not connect to the API at ${API_URL}.`, `No fue posible conectar con la API en ${API_URL}.`)); return }
+    if (!response.ok) { setError(t('errExportFailed')); return }
     const blob = await response.blob(); const link = document.createElement('a')
     link.href = URL.createObjectURL(blob); link.download = `openhfta-pattern.${format}`; link.click(); URL.revokeObjectURL(link.href)
+  }
+
+  async function exportComparison(format: string) {
+    if (!compareResult) return
+    const individualPrnMode = prnMode === 'individual'
+    const individualProfileMode = profileMode === 'individual'
+    const scenarioPrnCount = scenarioConfigs.filter((scenario, index) => Boolean(scenario.prn_default || scenarioPrnFiles[index])).length
+    const scenarioHasPrn = individualPrnMode && scenarioPrnCount === scenarioConfigs.length
+    const scenarioProfileCount = scenarioProfileFiles.filter(Boolean).length
+    const hasCompleteScenarioProfiles = scenarioProfileCount === scenarioConfigs.length
+    if (!individualProfileMode && !file) { setError(t('errSharedProfileRequired')); return }
+    if (individualProfileMode && !hasCompleteScenarioProfiles) { setError(t('errAllScenarioProfiles')); return }
+    if (!individualPrnMode && !aoaFile && !selectedPrn) { setError(t('errSharedPrnRequired')); return }
+    if (individualPrnMode && !scenarioHasPrn) { setError(t('errAllScenarioPrns')); return }
+    const form = buildAnalysisForm()
+    form.append('export_format', format)
+    form.append('locale', locale)
+    let response: Response
+    try { response = await fetch(`${API_URL}/api/compare`, { method: 'POST', body: form }) }
+    catch { setError(tr(`Não foi possível conectar à API em ${API_URL}.`, `Could not connect to the API at ${API_URL}.`, `No fue posible conectar con la API en ${API_URL}.`)); return }
+    if (!response.ok) { setError(t('errExportFailed')); return }
+    const blob = await response.blob(); const link = document.createElement('a')
+    link.href = URL.createObjectURL(blob); link.download = `openhfta-comparison.${format}`; link.click(); URL.revokeObjectURL(link.href)
   }
 
   const peak = result ? Math.max(...result.pattern_db) : null
@@ -460,8 +691,8 @@ function App() {
     ...(scenario.flat_pattern_db ? [{ x: compareResult?.angles_deg || scenario.angles_deg || [], y: scenario.flat_pattern_db, type: 'scatter', mode: accessiblePatterns ? 'lines+markers' : 'lines', name: 'FLAT.PRO', line: { color: palette.flatScenarios[index % 4], width: 2, dash: 'dot' }, marker: { symbol: 'x', size: 5, color: palette.flatScenarios[index % 4] }, hovertemplate: '%{x:.2f}°<br>%{y:.2f} dB<extra></extra>' }] : []),
     ...(scenario.aoa ? [aoaTrace(scenario.aoa)] : []),
   ].filter(Boolean)
-  const patternLayout = { autosize: true, margin: { l: 48, r: 70, t: 20, b: 42 }, paper_bgcolor: 'transparent', plot_bgcolor: 'transparent', barmode: 'overlay' as const, font: { color: '#9aabb5', family: 'Inter, sans-serif' }, xaxis: { title: 'Elevação (°)', range: [0, 36], tick0: 0, gridcolor: '#263943', zeroline: false, dtick: 1, nticks: 37 }, yaxis: { title: 'Ganho (dB)', range: [-10, 20], gridcolor: '#263943', zeroline: false, dtick: 1, nticks: 31 }, yaxis2: { title: 'Estatística de elevação (%)', overlaying: 'y', side: 'right', range: [0, 20], dtick: 5, showgrid: false }, hovermode: 'x unified' }
-  const rayLabels = RAY_LABELS
+  const patternLayout = { autosize: true, margin: { l: 48, r: 70, t: 20, b: 42 }, paper_bgcolor: 'transparent', plot_bgcolor: 'transparent', barmode: 'overlay' as const, font: { color: '#9aabb5', family: 'Inter, sans-serif' }, xaxis: { title: t('elevation'), range: [0, 36], tick0: 0, gridcolor: '#263943', zeroline: false, dtick: 1, nticks: 37 }, yaxis: { title: t('gain'), range: [-10, 20], gridcolor: '#263943', zeroline: false, dtick: 1, nticks: 31 }, yaxis2: { title: t('elevationStats'), overlaying: 'y', side: 'right', range: [0, 20], dtick: 5, showgrid: false }, hovermode: 'x unified' }
+  const rayLabels = RAY_LABELS_BY_LOCALE[locale]
   const rayColors = palette.rays
   const traceSource = result || compareResult?.scenarios[0] || null
   const terrainDistances = traceSource?.profile?.distances_m?.slice(0, profilePointCount(traceSource?.profile)) || []
@@ -526,46 +757,46 @@ function App() {
       const gain = rayGains[index]; const weight = rayHighGain === rayLowGain ? .45 : .14 + .38 * ((gain - rayLowGain) / (rayHighGain - rayLowGain))
       return { x: points.map(point => point[0] / 1000), y: points.map(point => point[1]), type: 'scatter', mode: 'lines', name: rayLabels[path.kind] || path.kind, legendgroup: path.kind, showlegend: visibleRays.findIndex(candidate => candidate.path.kind === path.kind) === index, line: { color: rayColors[path.kind] || '#78b7d9', width: (path.kind === 'direct' ? 1.05 : .65) + weight, opacity: weight, dash: accessiblePatterns ? RAY_DASHES[path.kind] : 'solid' }, hovertemplate: `${rayLabels[path.kind] || path.kind}<br>saída: ${path.angle_deg.toFixed(2)}°<br>ganho da antena: ${gain.toFixed(1)} dB<br>%{x:.2f} km · %{y:.1f} m<extra></extra>` }
     }),
-    { x: rayInteractions.map(point => point.distance / 1000), y: rayInteractions.map(point => point.height), type: 'scatter', mode: 'markers', name: 'Ponto no terreno', legendgroup: 'events', marker: { color: palette.event, size: 7, symbol: 'diamond', line: { color: '#081923', width: 1 } }, hovertemplate: 'Ponto de reflexão/difração<br>%{x:.2f} km · %{y:.1f} m<extra></extra>' },
-    { x: rayCorners.map(point => point.distance / 1000), y: rayCorners.map(point => point.height), type: 'scatter', mode: 'markers', name: 'Mudança de direção', legendgroup: 'corners', marker: { color: palette.corner, size: 8, symbol: 'triangle-down', line: { color: '#fff1dc', width: 1 } }, hovertemplate: 'Mudança de direção<br>%{x:.2f} km · %{y:.1f} m<extra></extra>' },
-    { x: [0], y: [terrainHeights[0] !== undefined ? terrainHeights[0] + (traceSource?.configuration?.antenna_heights_m?.[0] || 0) : 0], type: 'scatter', mode: 'markers', name: 'Antena', legendgroup: 'antenna', marker: { color: palette.antenna, size: 9, symbol: 'triangle-up' }, hovertemplate: 'Antena<br>%{y:.1f} m<extra></extra>' },
-    { x: terrainDistances.map(distance => distance / 1000), y: terrainHeights, type: 'scatter', mode: 'lines+markers', name: 'TERRENO', legendgroup: 'terrain', line: { color: palette.terrain, width: 2 }, marker: { color: palette.terrain, size: 4, symbol: 'diamond' }, fill: 'tozeroy', fillcolor: 'rgba(194, 174, 162, .42)', hovertemplate: 'TERRENO<br>%{x:.2f} km · %{y:.1f} m<extra></extra>' },
+    { x: rayInteractions.map(point => point.distance / 1000), y: rayInteractions.map(point => point.height), type: 'scatter', mode: 'markers', name: rayUi.terrainPointLabel, legendgroup: 'events', marker: { color: palette.event, size: 7, symbol: 'diamond', line: { color: '#081923', width: 1 } }, hovertemplate: `${rayUi.reflectionPointHover}<br>%{x:.2f} km · %{y:.1f} m<extra></extra>` },
+    { x: rayCorners.map(point => point.distance / 1000), y: rayCorners.map(point => point.height), type: 'scatter', mode: 'markers', name: rayUi.directionChangeLabel, legendgroup: 'corners', marker: { color: palette.corner, size: 8, symbol: 'triangle-down', line: { color: '#fff1dc', width: 1 } }, hovertemplate: `${rayUi.directionChangeLabel}<br>%{x:.2f} km · %{y:.1f} m<extra></extra>` },
+    { x: [0], y: [terrainHeights[0] !== undefined ? terrainHeights[0] + (traceSource?.configuration?.antenna_heights_m?.[0] || 0) : 0], type: 'scatter', mode: 'markers', name: rayUi.antennaLabel, legendgroup: 'antenna', marker: { color: palette.antenna, size: 9, symbol: 'triangle-up' }, hovertemplate: `${rayUi.antennaLabel}<br>%{y:.1f} m<extra></extra>` },
+    { x: terrainDistances.map(distance => distance / 1000), y: terrainHeights, type: 'scatter', mode: 'lines+markers', name: rayUi.terrainLabel, legendgroup: 'terrain', line: { color: palette.terrain, width: 2 }, marker: { color: palette.terrain, size: 4, symbol: 'diamond' }, fill: 'tozeroy', fillcolor: 'rgba(194, 174, 162, .42)', hovertemplate: `${rayUi.terrainLabel}<br>%{x:.2f} km · %{y:.1f} m<extra></extra>` },
     { x: [0, terrainEnd / 1000], y: [0, 10], yaxis: 'y2', type: 'scatter', mode: 'lines', line: { color: 'transparent', width: 0 }, opacity: 0, showlegend: false, hoverinfo: 'skip' },
   ]
-  const rayTraceLayout = { autosize: true, margin: { l: 62, r: 100, t: 42, b: 54 }, title: { text: 'RAY TRACE OVER TERRAIN · FOCO NO RELEVO', font: { size: 13, color: '#7dff9b' } }, paper_bgcolor: 'transparent', plot_bgcolor: 'transparent', font: { color: '#9aabb5', family: 'Inter, sans-serif' }, xaxis: { title: 'Distância (km)', range: [0, rayAxisEnd / 1000], dtick: .5, gridcolor: '#263943', zeroline: false }, yaxis: { title: 'Altura (m)', range: [rayYMin, rayYMax], dtick: 100, gridcolor: '#263943', zeroline: false }, yaxis2: { title: 'Elevação (°)', overlaying: 'y', anchor: 'x', side: 'right', range: [0, 10], tickmode: 'linear', dtick: 1, ticksuffix: '°', showticklabels: true, showline: true, ticks: 'outside', tickfont: { color: '#c7d4d7', size: 11 }, titlefont: { color: '#c7d4d7', size: 12 }, gridcolor: 'transparent', zeroline: false }, legend: { orientation: 'h' as const, y: -0.2 }, hovermode: 'closest' as const }
+  const rayTraceLayout = { autosize: true, margin: { l: 62, r: 100, t: 42, b: 54 }, title: { text: 'RAY TRACE OVER TERRAIN', font: { size: 13, color: '#7dff9b' } }, paper_bgcolor: 'transparent', plot_bgcolor: 'transparent', font: { color: '#9aabb5', family: 'Inter, sans-serif' }, xaxis: { title: rayUi.distance, range: [0, rayAxisEnd / 1000], dtick: .5, gridcolor: '#263943', zeroline: false }, yaxis: { title: t('height'), range: [rayYMin, rayYMax], dtick: 100, gridcolor: '#263943', zeroline: false }, yaxis2: { title: t('elevation'), overlaying: 'y', anchor: 'x', side: 'right', range: [0, 10], tickmode: 'linear', dtick: 1, ticksuffix: '°', showticklabels: true, showline: true, ticks: 'outside', tickfont: { color: '#c7d4d7', size: 11 }, titlefont: { color: '#c7d4d7', size: 12 }, gridcolor: 'transparent', zeroline: false }, legend: { orientation: 'h' as const, y: -0.2 }, hovermode: 'closest' as const }
 
   return <main className="shell">
     <header className="topbar">
       <div className="brand"><span className="brand-mark">↗</span><span>Open<span>HFTA</span></span></div>
-      <div className="topbar-actions"><button type="button" className={colorblindMode ? 'accessibility-toggle active' : 'accessibility-toggle'} onClick={() => setColorblindMode(current => !current)} aria-pressed={colorblindMode} title="Alternar paleta acessível para daltonismo">{colorblindMode ? '◉' : '○'} Cores acessíveis</button><button type="button" className={accessiblePatterns ? 'accessibility-toggle active' : 'accessibility-toggle'} onClick={() => setAccessiblePatterns(current => !current)} aria-pressed={accessiblePatterns} title="Alternar linhas e símbolos acessíveis">{accessiblePatterns ? '◉' : '○'} Linhas e símbolos</button><div className="status"><i /> núcleo Fortran online</div></div>
+      <div className="topbar-actions"><label className="language-switcher"><span>{t('language')}</span><select value={locale} onChange={event => setLocale(event.target.value as Locale)} aria-label={t('language')}>{LOCALE_OPTIONS.map(option => <option key={option.value} value={option.value}>{option.label}</option>)}</select></label><button type="button" className={colorblindMode ? 'accessibility-toggle active' : 'accessibility-toggle'} onClick={() => setColorblindMode(current => !current)} aria-pressed={colorblindMode} title={t('accessibleColors')}>{colorblindMode ? '◉' : '○'} {t('accessibleColors')}</button><button type="button" className={accessiblePatterns ? 'accessibility-toggle active' : 'accessibility-toggle'} onClick={() => setAccessiblePatterns(current => !current)} aria-pressed={accessiblePatterns} title={t('accessiblePatterns')}>{accessiblePatterns ? '◉' : '○'} {t('accessiblePatterns')}</button><div className="status"><i /> {t('online')}</div></div>
     </header>
 
     <section className="intro">
       <div className="intro-copy">
         <p className="eyebrow">HF TERRAIN ANALYSIS</p>
-        <h1>Veja o terreno<br /><em>moldar o sinal.</em></h1>
-        <p className="lede">Envie um perfil de terreno e explore o padrão de elevação da sua antena em segundos.</p>
+        <h1>{t('heroTitle')}<br /><em>{t('heroTitleEm')}</em></h1>
+        <p className="lede">{t('heroLede')}</p>
       </div>
       <aside className="project-hero-credit">
-        <small>PROJETO OPEN SOURCE</small>
+        <small>{t('heroEyebrow')}</small>
         <strong>OpenHFTA<br /><em>HF Terrain Analysis</em></strong>
-        <p>Projeto mantido pelo <a href="https://github.com/RioDXGroup" target="_blank" rel="noreferrer">Rio DX Group</a>.</p>
-        <p><b>Desenvolvimento e contribuições técnicas:</b> <a href="https://www.qrz.com/db/PY2UID" target="_blank" rel="noreferrer">Paulo Matias — PY2UID</a> · <a href="https://github.com/thotypous" target="_blank" rel="noreferrer">GitHub ↗</a></p>
-        <p>Radioamador, doutor pelo IFSC/USP, atua com Large Language Models na UFSCar e participa de competições de segurança da informação e CTF pela Epic Leet.</p>
-        <a className="project-link" href="https://github.com/RioDXGroup/openhfta" target="_blank" rel="noreferrer">Projeto original no GitHub ↗</a>
-        <p><b>Integração da versão web:</b> <a href="https://www.qrz.com/db/PT9TI" target="_blank" rel="noreferrer">Fernando Fernandes — PT9TI ↗</a></p>
-        <p>Analista de sistemas e radioamador, responsável pela transformação do OpenHFTA em uma aplicação web moderna, com API, interface gráfica, análises comparativas, métricas e visualização dos resultados.</p>
+        <p>{t('heroMaintainedBy')} <a href="https://github.com/RioDXGroup" target="_blank" rel="noreferrer">Rio DX Group</a>.</p>
+        <p><b>{t('heroDevContributions')}</b> <a href="https://www.qrz.com/db/PY2UID" target="_blank" rel="noreferrer">Paulo Matias — PY2UID</a> · <a href="https://github.com/thotypous" target="_blank" rel="noreferrer">GitHub ↗</a></p>
+        <p>{t('heroAuthorBio')}</p>
+        <a className="project-link" href="https://github.com/RioDXGroup/openhfta" target="_blank" rel="noreferrer">{t('heroOriginalProject')}</a>
+        <p><b>{t('heroWebIntegration')}</b> <a href="https://www.qrz.com/db/PT9TI" target="_blank" rel="noreferrer">Fernando Fernandes — PT9TI ↗</a></p>
+        <p>{t('heroWebAuthorBio')}</p>
       </aside>
     </section>
 
-    <aside className="feedback-banner" aria-label="Convite para colaboração">
-      <div><span className="feedback-mark" aria-hidden="true">✦</span><div><strong>Ajude a melhorar o OpenHFTA</strong><p>Encontrou algo estranho ou tem uma sugestão? Sua experiência ajuda a tornar a ferramenta mais útil para toda a comunidade.</p></div></div>
-      <button type="button" onClick={() => { setFeedbackStatus(''); setFeedbackError(''); setShowFeedback(true) }}>Enviar sugestão <span>→</span></button>
+    <aside className="feedback-banner" aria-label={tr('Convite para colaboração', 'Invitation to collaborate', 'Invitación a colaborar')}>
+      <div><span className="feedback-mark" aria-hidden="true">✦</span><div><strong>{t('helpImprove')}</strong><p>{t('feedbackBanner')}</p></div></div>
+      <button type="button" onClick={() => { setFeedbackStatus(''); setFeedbackError(''); setShowFeedback(true) }}>{t('sendSuggestion')} <span>→</span></button>
     </aside>
 
     <section className="workspace">
       <form className="panel controls" onSubmit={submit} onClickCapture={notifySharedResourceClick}>
-        <div className="panel-heading"><span className="step">01</span><div><h2>Configuração</h2><p>Defina o cenário de análise</p></div><button type="button" className="help-button" onClick={() => setShowHelp(true)} aria-label="Explicar campos do formulário">?</button></div>
+        <div className="panel-heading"><span className="step">01</span><div><h2>{t('configuration')}</h2><p>{t('defineScenario')}</p></div><button type="button" className="help-button" onClick={() => setShowHelp(true)} aria-label={t('explainFields')}>?</button></div>
         {(!compareMode || profileMode === 'shared') && <label className="file-drop">
           <input disabled={compareMode && profileMode === 'individual'} type="file" accept=".pro,.PRO" multiple onChange={event => {
             const selected = Array.from(event.target.files || [])
@@ -578,7 +809,7 @@ function App() {
               setCompareMode(true)
               setScenarioConfigs(current => {
               const next = [...current]
-              while (next.length < nextFiles.length && next.length < 4) next.push({ name: `Cenário ${String.fromCharCode(65 + next.length)}`, heights: '10', antenna_type: 'Dipole', polarization: 'horizontal' })
+              while (next.length < nextFiles.length && next.length < 4) next.push({ name: scenarioName(next.length), heights: '10', antenna_type: 'Dipole', polarization: 'horizontal' })
               setScenarioPrnFiles(currentPrns => {
                 const nextPrns = [...currentPrns]
                 while (nextPrns.length < next.length) nextPrns.push(null)
@@ -596,92 +827,93 @@ function App() {
             event.currentTarget.value = ''
           }} />
           <span className="upload-icon">↑</span>
-          {files.length ? <div className="selected-files">{files.map((selectedFile, index) => <span className="selected-file" key={`${selectedFile.name}-${selectedFile.size}-${selectedFile.lastModified}`}><strong>{compareMode ? files.length === 1 ? `Todos os cenários · ${selectedFile.name}` : `Cenário ${String.fromCharCode(65 + index)} · ${selectedFile.name}` : selectedFile.name}</strong><button type="button" aria-label={`Remover ${selectedFile.name}`} onClick={event => { event.preventDefault(); event.stopPropagation(); setFiles(current => current.filter((_, fileIndex) => fileIndex !== index)) }}>×</button></span>)}</div> : <strong>Solte seu perfil .PRO aqui</strong>}
-          <small>{files.length ? `${files.length} perfil(is) selecionado(s)` : compareMode ? 'selecione 1 perfil para todos ou até 4 perfis por azimute' : 'ou clique para procurar no computador'}</small>
+          {files.length ? <div className="selected-files">{files.map((selectedFile, index) => <span className="selected-file" key={`${selectedFile.name}-${selectedFile.size}-${selectedFile.lastModified}`}><strong>{compareMode ? files.length === 1 ? `${tr('Todos os cenários', 'All scenarios', 'Todos los escenarios')} · ${selectedFile.name}` : `${scenarioName(index)} · ${selectedFile.name}` : selectedFile.name}</strong><button type="button" aria-label={tr(`Remover ${selectedFile.name}`, `Remove ${selectedFile.name}`, `Quitar ${selectedFile.name}`)} onClick={event => { event.preventDefault(); event.stopPropagation(); setFiles(current => current.filter((_, fileIndex) => fileIndex !== index)) }}>×</button></span>)}</div> : <strong>{t('uploadProfile')}</strong>}
+          <small>{files.length ? tr(`${files.length} perfil(is) selecionado(s)`, `${files.length} profile(s) selected`, `${files.length} perfil(es) seleccionado(s)`) : compareMode ? tr('selecione 1 perfil para todos ou até 4 perfis por azimute', 'select 1 profile for all or up to 4 profiles per azimuth', 'seleccione 1 perfil para todos o hasta 4 perfiles por azimut') : t('browseComputer')}</small>
         </label>}
 
-        {(!compareMode || prnMode === 'shared') && <label className="aoa-upload"><input type="file" accept=".prn,.PRN" onChange={event => { const selected = event.target.files?.[0] || null; setAoaFile(selected); if (selected) setSelectedPrn('') }} /><span>Estatística de elevação (.PRN) — compartilhado</span><strong>{aoaFile ? aoaFile.name : 'Envie seu arquivo .PRN'}</strong></label>}
+        {(!compareMode || prnMode === 'shared') && <label className="aoa-upload"><input type="file" accept=".prn,.PRN" onChange={event => { const selected = event.target.files?.[0] || null; setAoaFile(selected); if (selected) setSelectedPrn('') }} /><span>{tr('Estatística de elevação (.PRN) — compartilhado', 'Elevation statistics (.PRN) — shared', 'Estadística de elevación (.PRN) — compartida')}</span><strong>{aoaFile ? aoaFile.name : tr('Envie seu arquivo .PRN', 'Upload your .PRN file', 'Cargue su archivo .PRN')}</strong></label>}
         <div className="field-grid">
-          {(!compareMode || prnMode === 'shared') && <label>PRN padrão compartilhado<select value={selectedPrn} onChange={event => { setSelectedPrn(event.target.value); if (event.target.value) setAoaFile(null) }}><option value="">Selecione um padrão</option>{prnOptions.map(name => <option key={name} value={name}>{name}</option>)}</select><small>{aoaFile ? 'O arquivo próprio foi selecionado; escolher um padrão o substitui.' : 'Ou escolha um padrão compartilhado para todos os cenários.'}</small></label>}
-          <label>Frequência<input value={frequency} onChange={e => setFrequency(e.target.value)} placeholder="20m ou 14.2" /></label>
-          <label>Unidade<select value={units} onChange={e => setUnits(e.target.value)}><option value="meters">Metros</option><option value="feet">Pés</option></select></label>
-          <label className={compareMode ? 'field-disabled' : ''}>Alturas da antena<input disabled={compareMode} value={heights} onChange={e => setHeights(e.target.value)} placeholder="10 20*" /><small>{compareMode ? 'Use as alturas dos cenários A–D abaixo.' : 'Separe elementos por espaço; * = 180°'}</small></label>
-          <label className={compareMode ? 'field-disabled' : ''}>Tipo de antena<select disabled={compareMode} value={antennaType} onChange={e => setAntennaType(e.target.value)}>{['Dipole','2-Ele','3-Ele','4-Ele','5-Ele','6-Ele','8-Ele'].map(type => <option key={type}>{type}</option>)}</select></label>
-          <label className={compareMode ? 'field-disabled' : ''}>Polarização<select disabled={compareMode} value={polarization} onChange={e => setPolarization(e.target.value as 'horizontal' | 'vertical')}><option value="horizontal">Horizontal (H)</option><option value="vertical">Vertical (V)</option></select><small>{compareMode ? 'Use a polarização de cada cenário abaixo.' : 'H usa TE; V usa TM na reflexão do solo.'}</small></label>
-          <label>Permissividade do solo<input type="number" step="any" value={soilEpsr} onChange={e => setSoilEpsr(e.target.value)} /></label>
-          <label>Condutividade (S/m)<input type="number" step="any" value={soilSigma} onChange={e => setSoilSigma(e.target.value)} /></label>
-          <label>Deslocamento da torre<input type="number" step="any" value={moveTower} onChange={e => setMoveTower(e.target.value)} /></label>
+          {(!compareMode || prnMode === 'shared') && <label>{tr('PRN padrão compartilhado', 'Shared default PRN', 'PRN predeterminado compartido')}<select value={selectedPrn} onChange={event => { setSelectedPrn(event.target.value); if (event.target.value) setAoaFile(null) }}><option value="">{tr('Selecione um padrão', 'Select a default', 'Seleccione un valor predeterminado')}</option>{prnOptions.map(name => <option key={name} value={name}>{name}</option>)}</select><small>{aoaFile ? tr('O arquivo próprio foi selecionado; escolher um padrão o substitui.', 'A custom file is selected; choosing a default replaces it.', 'Se seleccionó un archivo propio; elegir un valor predeterminado lo reemplaza.') : tr('Ou escolha um padrão compartilhado para todos os cenários.', 'Or choose a shared default for all scenarios.', 'O elija un valor predeterminado compartido para todos los escenarios.')}</small></label>}
+          <label>{t('frequency')}<input value={frequency} onChange={e => setFrequency(e.target.value)} placeholder="20m ou 14.2" /></label>
+          <label>{t('units')}<select value={units} onChange={e => setUnits(e.target.value)}><option value="meters">{t('meters')}</option><option value="feet">{t('feet')}</option></select></label>
+          <label className={compareMode ? 'field-disabled' : ''}>{t('antennaHeights')}<input disabled={compareMode} value={heights} onChange={e => setHeights(e.target.value)} placeholder="10 20*" /><small>{compareMode ? tr('Use as alturas dos cenários A–D abaixo.', 'Use the heights for scenarios A–D below.', 'Use las alturas de los escenarios A–D.') : tr('Separe elementos por espaço; * = 180°', 'Separate elements with spaces; * = 180°', 'Separe los elementos con espacios; * = 180°')}</small></label>
+          <label className={compareMode ? 'field-disabled' : ''}>{t('antennaType')}<select disabled={compareMode} value={antennaType} onChange={e => setAntennaType(e.target.value)}>{['Dipole','2-Ele','3-Ele','4-Ele','5-Ele','6-Ele','8-Ele'].map(type => <option key={type}>{type}</option>)}</select></label>
+          <label className={compareMode ? 'field-disabled' : ''}>{t('polarization')}<select disabled={compareMode} value={polarization} onChange={e => setPolarization(e.target.value as 'horizontal' | 'vertical')}><option value="horizontal">Horizontal (H)</option><option value="vertical">Vertical (V)</option></select><small>{compareMode ? tr('Use a polarização de cada cenário abaixo.', 'Use the polarization for each scenario below.', 'Use la polarización de cada escenario.') : tr('H usa TE; V usa TM na reflexão do solo.', 'H uses TE; V uses TM for ground reflection.', 'H usa TE; V usa TM en la reflexión del suelo.')}</small></label>
+          <label>{t('soilPermittivity')}<input type="number" step="any" value={soilEpsr} onChange={e => setSoilEpsr(e.target.value)} /></label>
+          <label>{t('soilConductivity')}<input type="number" step="any" value={soilSigma} onChange={e => setSoilSigma(e.target.value)} /></label>
+          <label>{t('towerOffset')}<input type="number" step="any" value={moveTower} onChange={e => setMoveTower(e.target.value)} /></label>
         </div>
-        <label className="toggle"><input type="checkbox" checked={!noDiffraction} onChange={e => setNoDiffraction(!e.target.checked)} /><span />Incluir difração no cálculo</label>
-        <label className="toggle"><input type="checkbox" checked={compareMode} onChange={e => { setCompareMode(e.target.checked); if (!e.target.checked && files.length > 1) setFiles([files[0]]) }} /><span />Comparar cenários</label>
-        {compareMode && <div className="scenario-editor"><div className="scenario-editor-title"><span>Até quatro cenários</span><span className="prn-mode"><label><input type="radio" name="prn-mode" checked={prnMode === 'shared'} onChange={() => setPrnMode('shared')} /> PRN compartilhado</label><label><input type="radio" name="prn-mode" checked={prnMode === 'individual'} onChange={() => setPrnMode('individual')} /> PRN individual</label><label><input type="radio" name="profile-mode" checked={profileMode === 'shared'} onChange={() => setProfileMode('shared')} /> PRO compartilhado</label><label><input type="radio" name="profile-mode" checked={profileMode === 'individual'} onChange={() => setProfileMode('individual')} /> PRO individual</label></span>{scenarioConfigs.length < 4 && <button type="button" onClick={() => { setScenarioConfigs(current => [...current, { name: `Cenário ${String.fromCharCode(65 + current.length)}`, heights: '10', antenna_type: 'Dipole', polarization: 'horizontal' }]); setScenarioPrnFiles(current => [...current, null]); setScenarioProfileFiles(current => [...current, null]) }}>+ adicionar</button>}</div><p className="scenario-help">Você pode informar `.PRO` em cada linha. Escolha acima se o `.PRO` e o `.PRN` serão compartilhados pelo formulário ou individuais por cenário.</p>{scenarioConfigs.map((scenario, index) => <div className="scenario-row" key={index}><label className="scenario-control"><span title="Nome usado nos gráficos e resultados">Nome do cenário</span><input aria-label={`Nome do cenário ${index + 1}`} value={scenario.name} onChange={event => updateScenario(index, { name: event.target.value })} placeholder={`Cenário ${String.fromCharCode(65 + index)}`} /></label><label className="scenario-control"><span title="Altura de cada elemento; use espaços entre valores e * para inverter a fase">Alturas</span><input aria-label={`Alturas do cenário ${index + 1}`} value={scenario.heights} onChange={event => updateScenario(index, { heights: event.target.value })} placeholder="10 20*" /></label><label className="scenario-control"><span title="Modelo de antena deste cenário">Antena</span><select aria-label={`Antena do cenário ${index + 1}`} value={scenario.antenna_type} onChange={event => updateScenario(index, { antenna_type: event.target.value })}>{antennaTypes.map(type => <option key={type}>{type}</option>)}</select></label><label className="scenario-control"><span title="Polarização calculada neste cenário">Polarização</span><select aria-label={`Polarização do cenário ${index + 1}`} value={scenario.polarization || 'horizontal'} onChange={event => updateScenario(index, { polarization: event.target.value as 'horizontal' | 'vertical' })}><option value="horizontal">Horizontal (H)</option><option value="vertical">Vertical (V)</option></select></label><label className={`scenario-file scenario-control ${profileMode === 'shared' ? 'field-disabled' : ''}`}><span title="Perfil de terreno usado neste cenário">Perfil .PRO</span><input disabled={profileMode === 'shared'} type="file" accept=".pro,.PRO" onChange={event => updateScenarioProfile(index, event.target.files?.[0] || null)} /><strong>{scenarioProfileFiles[index]?.name || 'bloco superior'}</strong></label>{prnMode === 'individual' ? <><label className="scenario-file scenario-control"><span title="Estatística dos ângulos de chegada">Estatística .PRN</span><input type="file" accept=".prn,.PRN" onChange={event => updateScenarioPrn(index, event.target.files?.[0] || null)} /><strong>{scenarioPrnFiles[index]?.name || 'arquivo'}</strong></label><label className="scenario-control"><span title="PRN padrão selecionado para este cenário">PRN padrão</span><select aria-label={`PRN padrão do cenário ${index + 1}`} value={scenario.prn_default || ''} onChange={event => { updateScenario(index, { prn_default: event.target.value }); if (event.target.value) updateScenarioPrn(index, null) }}><option value="">Selecione</option>{prnOptions.map(name => <option key={name} value={name}>{name}</option>)}</select></label></> : <span className="scenario-shared-prn scenario-control">PRN compartilhado</span>}{scenarioConfigs.length > 2 && <button type="button" className="remove-scenario" aria-label={`Remover cenário ${index + 1}`} onClick={() => { setScenarioConfigs(current => current.filter((_, scenarioIndex) => scenarioIndex !== index)); setScenarioPrnFiles(current => current.filter((_, fileIndex) => fileIndex !== index)); setScenarioProfileFiles(current => current.filter((_, fileIndex) => fileIndex !== index)) }}>×</button>}</div>)}</div>}
+        <label className="toggle"><input type="checkbox" checked={!noDiffraction} onChange={e => setNoDiffraction(!e.target.checked)} /><span />{t('includeDiffraction')}</label>
+        <label className="toggle"><input type="checkbox" checked={compareMode} onChange={e => { setCompareMode(e.target.checked); if (!e.target.checked && files.length > 1) setFiles([files[0]]) }} /><span />{t('compareScenarios')}</label>
+        {compareMode && <div className="scenario-editor"><div className="scenario-editor-title"><span>{t('upToFourScenarios')}</span><span className="prn-mode"><label><input type="radio" name="prn-mode" checked={prnMode === 'shared'} onChange={() => setPrnMode('shared')} /> {t('sharedPrn')}</label><label><input type="radio" name="prn-mode" checked={prnMode === 'individual'} onChange={() => setPrnMode('individual')} /> {t('individualPrn')}</label><label><input type="radio" name="profile-mode" checked={profileMode === 'shared'} onChange={() => setProfileMode('shared')} /> {t('sharedProfile')}</label><label><input type="radio" name="profile-mode" checked={profileMode === 'individual'} onChange={() => setProfileMode('individual')} /> {t('individualProfile')}</label></span>{scenarioConfigs.length < 4 && <button type="button" onClick={() => { setScenarioConfigs(current => [...current, { name: scenarioName(current.length), heights: '10', antenna_type: 'Dipole', polarization: 'horizontal' }]); setScenarioPrnFiles(current => [...current, null]); setScenarioProfileFiles(current => [...current, null]) }}>{t('addScenario')}</button>}</div><p className="scenario-help">{t('scenarioHelpText')}</p>{scenarioConfigs.map((scenario, index) => <div className="scenario-row" key={index}><label className="scenario-control"><span title={t('scenarioNameTooltip')}>{t('scenarioNameLabel')}</span><input aria-label={`${t('scenarioNameLabel')} ${index + 1}`} value={scenario.name} onChange={event => updateScenario(index, { name: event.target.value })} placeholder={scenarioName(index)} /></label><label className="scenario-control"><span title={t('scenarioHeightsTooltip')}>{t('scenarioHeightsShort')}</span><input aria-label={`${t('scenarioHeightsShort')} ${index + 1}`} value={scenario.heights} onChange={event => updateScenario(index, { heights: event.target.value })} placeholder="10 20*" /></label><label className="scenario-control"><span title={t('scenarioAntennaTooltip')}>{t('scenarioAntennaLabel')}</span><select aria-label={`${t('scenarioAntennaLabel')} ${index + 1}`} value={scenario.antenna_type} onChange={event => updateScenario(index, { antenna_type: event.target.value })}>{antennaTypes.map(type => <option key={type}>{type}</option>)}</select></label><label className="scenario-control"><span title={t('scenarioPolarizationTooltip')}>{t('polarization')}</span><select aria-label={`${t('polarization')} ${index + 1}`} value={scenario.polarization || 'horizontal'} onChange={event => updateScenario(index, { polarization: event.target.value as 'horizontal' | 'vertical' })}><option value="horizontal">Horizontal (H)</option><option value="vertical">Vertical (V)</option></select></label><label className={`scenario-file scenario-control ${profileMode === 'shared' ? 'field-disabled' : ''}`}><span title={t('scenarioProfileTooltip')}>{t('scenarioProfileLabel')}</span><input disabled={profileMode === 'shared'} type="file" accept=".pro,.PRO" onChange={event => updateScenarioProfile(index, event.target.files?.[0] || null)} /><strong>{scenarioProfileFiles[index]?.name || t('topBlockPlaceholder')}</strong></label>{prnMode === 'individual' ? <><label className="scenario-file scenario-control"><span title={t('scenarioPrnTooltip')}>{t('scenarioPrnStatLabel')}</span><input type="file" accept=".prn,.PRN" onChange={event => updateScenarioPrn(index, event.target.files?.[0] || null)} /><strong>{scenarioPrnFiles[index]?.name || t('filePlaceholder')}</strong></label><label className="scenario-control"><span title={t('scenarioDefaultPrnTooltip')}>{t('scenarioDefaultPrnLabel')}</span><select aria-label={`${t('scenarioDefaultPrnLabel')} ${index + 1}`} value={scenario.prn_default || ''} onChange={event => { updateScenario(index, { prn_default: event.target.value }); if (event.target.value) updateScenarioPrn(index, null) }}><option value="">{t('selectGeneric')}</option>{prnOptions.map(name => <option key={name} value={name}>{name}</option>)}</select></label></> : <span className="scenario-shared-prn scenario-control">{t('sharedPrn')}</span>}{scenarioConfigs.length > 2 && <button type="button" className="remove-scenario" aria-label={tr(`Remover cenário ${index + 1}`, `Remove scenario ${index + 1}`, `Quitar escenario ${index + 1}`)} onClick={() => { setScenarioConfigs(current => current.filter((_, scenarioIndex) => scenarioIndex !== index)); setScenarioPrnFiles(current => current.filter((_, fileIndex) => fileIndex !== index)); setScenarioProfileFiles(current => current.filter((_, fileIndex) => fileIndex !== index)) }}>×</button>}</div>)}</div>}
         {error && <div className="error" role="alert">{error}</div>}
-        <button className="submit" disabled={loading}>{loading ? 'Calculando...' : 'Executar análise'} <span>→</span></button>
+        <button className="submit" disabled={loading}>{loading ? t('calculating') : t('calculate')} <span>→</span></button>
       </form>
 
       <section className="panel results">
-        <div className="panel-heading"><span className="step">02</span><div><h2>Resultado</h2><p>{compareResult ? 'Comparação calculada pelo núcleo' : result ? 'Padrão calculado pelo núcleo' : 'Aguardando uma análise'}</p></div></div>
-        {loading && <div className="analysis-loading" role="status" aria-live="polite"><span className="loading-spinner" aria-hidden="true" /><div><strong>Processando análise…</strong><p>O núcleo Fortran está calculando o padrão, a difração e as trajetórias sobre o terreno.</p><small>Não feche esta página. O tempo depende do perfil e da quantidade de trajetórias.</small></div></div>}
+        <div className="panel-heading"><span className="step">02</span><div><h2>{t('result')}</h2><p>{compareResult ? t('comparisonCalculated') : result ? t('patternCalculated') : t('waitingAnalysis')}</p></div></div>
+        {loading && <div className="analysis-loading" role="status" aria-live="polite"><span className="loading-spinner" aria-hidden="true" /><div><strong>{t('processing')}</strong><p>{tr('O núcleo Fortran está calculando o padrão, a difração e as trajetórias sobre o terreno.', 'The Fortran core is calculating the pattern, diffraction, and paths over the terrain.', 'El núcleo Fortran está calculando el patrón, la difracción y las trayectorias sobre el terreno.')}</p><small>{tr('Não feche esta página. O tempo depende do perfil e da quantidade de trajetórias.', 'Do not close this page. Time depends on the profile and number of paths.', 'No cierre esta página. El tiempo depende del perfil y de la cantidad de trayectorias.')}</small></div></div>}
         {compareResult ? <>
-          <div className="comparison-pairs">{(compareResult.comparison.pairwise || [compareResult.comparison]).map((pair, index) => <article key={index}><div className="terrain-heading"><small>A × {String.fromCharCode(66 + index)}</small><span>Comparação com o cenário A</span></div><div className="metrics"><div><small>RMSE</small><strong>{pair.rmse_db.toFixed(2)} <b>dB</b></strong></div><div><small>MAIOR DIFERENÇA</small><strong>{pair.max_absolute_delta_db.toFixed(2)} <b>dB</b></strong></div><div><small>DIFERENÇA DE PICO</small><strong>{pair.peak_delta_db.toFixed(2)} <b>dB</b></strong></div><div><small>DIF. MÉDIA INTEGRADA</small><strong>{pair.integrated_average_delta_db.toFixed(2)} <b>dB</b></strong></div></div></article>)}</div>
-          <div className="scenario-details">{compareResult.scenarios.map(scenario => <article key={scenario.name}><div className="terrain-heading"><small>{scenarioLabel(scenario)}</small></div><div className="metrics"><div><small>PICO DO PADRÃO</small><strong>{scenario.metrics?.peak.value_db.toFixed(2)} <b>dB</b></strong></div><div><small>ÂNGULO DO PICO</small><strong>{scenario.metrics?.peak.angle_deg.toFixed(2)} <b>°</b></strong></div><div><small>MÉDIA INTEGRADA</small><strong>{scenario.metrics?.integrated_average_gain.average_db.toFixed(2)} <b>dB</b></strong></div><div><small>LARGURA −3 dB</small><strong>{scenario.metrics?.beamwidth_3db?.width_deg?.toFixed(2) ?? '—'} <b>°</b></strong></div><div><small>PONTOS DO PERFIL</small><strong>{scenario.profile ? profilePointCount(scenario.profile) : '—'}</strong></div><div><small>FIGURE OF MERIT</small><strong>{scenario.metrics?.figure_of_merit_db?.toFixed(2) ?? '—'} <b>dB</b></strong></div></div><div className="result-note">{scenario.configuration?.diffraction_disable ? 'Difração desativada' : 'Difração incluída'} · {scenario.configuration?.frequency_mhz?.toFixed(2)} MHz · {scenario.profile?.source_units || 'unidade não informada'} · {scenario.configuration?.antenna_heights_m?.map(height => height.toFixed(2)).join(' / ')} m</div></article>)}</div>
-          {prnMode === 'individual' ? <div className="scenario-visuals">{compareResult.scenarios.map((scenario, index) => <article className="scenario-visual" key={scenario.name}><div className="terrain-heading"><small>{scenarioLabel(scenario)}</small></div><Plot className="chart" data={scenarioPatternData(scenario, index)} layout={patternLayout} config={{ responsive: true, displaylogo: false }} useResizeHandler style={{ width: '100%', height: '300px' }} />{scenario.profile && <Plot className="terrain-chart" data={[{ x: scenario.profile.distances_m.slice(0, profilePointCount(scenario.profile)), y: scenario.profile.heights_m.slice(0, profilePointCount(scenario.profile)), type: 'scatter', mode: 'lines', name: scenario.name, line: { color: palette.scenarios[index % 4], width: 2 }, hovertemplate: '%{x:.0f} m<br>%{y:.1f} m<extra></extra>' }]} layout={{ autosize: true, margin: { l: 48, r: 16, t: 12, b: 40 }, paper_bgcolor: 'transparent', plot_bgcolor: 'transparent', font: { color: '#9aabb5', family: 'Inter, sans-serif' }, xaxis: { title: 'Distância (m)', gridcolor: '#263943', nticks: 14 }, yaxis: { title: 'Altitude (m)', gridcolor: '#263943', nticks: 10 } }} config={{ responsive: true, displaylogo: false }} useResizeHandler style={{ width: '100%', height: '100%' }} />}</article>)}</div> : <><Plot className="chart" data={comparePatternData} layout={patternLayout} config={{ responsive: true, displaylogo: false }} useResizeHandler style={{ width: '100%', height: '300px' }} /><div className="scenario-averages">{compareResult.scenarios.map(scenario => <span key={scenario.name}><small>{scenario.name}</small><strong>{scenario.metrics?.integrated_average_gain.average_db.toFixed(2)} dB</strong></span>)}</div><Plot className="terrain-chart" data={compareResult.scenarios.filter(scenario => scenario.profile).map((scenario, index) => ({ x: scenario.profile?.distances_m, y: scenario.profile?.heights_m, type: 'scatter' as const, mode: 'lines' as const, name: scenario.profile_name ? `${scenario.name} · ${scenario.profile_name}` : scenario.name, line: { color: palette.scenarios[index % 4], width: 2, dash: accessiblePatterns ? SCENARIO_DASHES[index % 4] : 'solid' } }))} layout={{ autosize: true, margin: { l: 48, r: 16, t: 12, b: 40 }, paper_bgcolor: 'transparent', plot_bgcolor: 'transparent', font: { color: '#9aabb5', family: 'Inter, sans-serif' }, xaxis: { title: 'Distância (m)', gridcolor: '#263943', nticks: 14 }, yaxis: { title: 'Altitude (m)', gridcolor: '#263943', nticks: 10 }, legend: { orientation: 'h' } }} config={{ responsive: true, displaylogo: false }} useResizeHandler style={{ width: '100%', height: '100%' }} /></>}
-          <div className="scenario-ray-list">{compareResult.scenarios.map((scenario, index) => <ScenarioRayTrace key={scenario.name} scenario={scenario} index={index} angles={compareResult.angles_deg} rayKinds={rayKinds} onToggle={kind => setRayKinds(current => ({ ...current, [kind]: !current[kind] }))} onHelp={() => setShowRayHelp(true)} accessibleColors={colorblindMode} accessiblePatterns={accessiblePatterns} />)}</div>
-          {compareResult.interpretation && <div className="interpretation"><small>LEITURA AUTOMÁTICA</small><strong>{compareResult.interpretation.headline}</strong><p>{compareResult.interpretation.beginner}</p><p className="technical">{compareResult.interpretation.technical}</p><ul>{compareResult.interpretation.observations.map((observation, index) => <li key={index}>{observation}</li>)}</ul></div>}
-          {compareResult.limitations && <div className="limitations"><small>LIMITES DO MODELO</small>{compareResult.limitations.map((limitation, index) => <p key={index}>• {limitation}</p>)}</div>}
+          <div className="comparison-pairs">{(compareResult.comparison.pairwise || [compareResult.comparison]).map((pair, index) => <article key={index}><div className="terrain-heading"><small>A × {String.fromCharCode(66 + index)}</small><span>{t('comparisonWithScenarioA')}</span></div><div className="metrics"><div><small>RMSE</small><strong>{pair.rmse_db.toFixed(2)} <b>dB</b></strong></div><div><small>{t('maxDifference')}</small><strong>{pair.max_absolute_delta_db.toFixed(2)} <b>dB</b></strong></div><div><small>{t('peakDifference')}</small><strong>{pair.peak_delta_db.toFixed(2)} <b>dB</b></strong></div><div><small>{t('integratedAvgDiff')}</small><strong>{pair.integrated_average_delta_db.toFixed(2)} <b>dB</b></strong></div></div></article>)}</div>
+          <div className="scenario-details">{compareResult.scenarios.map(scenario => <article key={scenario.name}><div className="terrain-heading"><small>{scenarioLabel(scenario)}</small></div><div className="metrics"><div><small>{t('peakOfPattern')}</small><strong>{scenario.metrics?.peak.value_db.toFixed(2)} <b>dB</b></strong></div><div><small>{t('peakAngleLabel')}</small><strong>{scenario.metrics?.peak.angle_deg.toFixed(2)} <b>°</b></strong></div><div><small>{t('integratedAverageLabel')}</small><strong>{scenario.metrics?.integrated_average_gain.average_db.toFixed(2)} <b>dB</b></strong></div><div><small>{t('beamwidth3db')}</small><strong>{scenario.metrics?.beamwidth_3db?.width_deg?.toFixed(2) ?? '—'} <b>°</b></strong></div><div><small>{t('profilePointsLabel')}</small><strong>{scenario.profile ? profilePointCount(scenario.profile) : '—'}</strong></div><div><small>FIGURE OF MERIT</small><strong>{scenario.metrics?.figure_of_merit_db?.toFixed(2) ?? '—'} <b>dB</b></strong></div></div><div className="result-note">{scenario.configuration?.diffraction_disable ? t('noDiffraction') : t('diffraction')} · {scenario.configuration?.frequency_mhz?.toFixed(2)} MHz · {scenario.profile?.source_units || t('unitNotInformed')} · {scenario.configuration?.antenna_heights_m?.map(height => height.toFixed(2)).join(' / ')} m</div></article>)}</div>
+          {prnMode === 'individual' ? <div className="scenario-visuals">{compareResult.scenarios.map((scenario, index) => <article className="scenario-visual" key={scenario.name}><div className="terrain-heading"><small>{scenarioLabel(scenario)}</small></div><Plot className="chart" data={scenarioPatternData(scenario, index)} layout={patternLayout} config={{ responsive: true, displaylogo: false }} useResizeHandler style={{ width: '100%', height: '300px' }} />{scenario.profile && <Plot className="terrain-chart" data={[{ x: scenario.profile.distances_m.slice(0, profilePointCount(scenario.profile)), y: scenario.profile.heights_m.slice(0, profilePointCount(scenario.profile)), type: 'scatter', mode: 'lines', name: scenario.name, line: { color: palette.scenarios[index % 4], width: 2 }, hovertemplate: '%{x:.0f} m<br>%{y:.1f} m<extra></extra>' }]} layout={{ autosize: true, margin: { l: 48, r: 16, t: 12, b: 40 }, paper_bgcolor: 'transparent', plot_bgcolor: 'transparent', font: { color: '#9aabb5', family: 'Inter, sans-serif' }, xaxis: { title: t('distanceAxis'), gridcolor: '#263943', nticks: 14 }, yaxis: { title: t('altitudeAxis'), gridcolor: '#263943', nticks: 10 } }} config={{ responsive: true, displaylogo: false }} useResizeHandler style={{ width: '100%', height: '100%' }} />}</article>)}</div> : <><Plot className="chart" data={comparePatternData} layout={patternLayout} config={{ responsive: true, displaylogo: false }} useResizeHandler style={{ width: '100%', height: '300px' }} /><div className="scenario-averages">{compareResult.scenarios.map(scenario => <span key={scenario.name}><small>{scenario.name}</small><strong>{scenario.metrics?.integrated_average_gain.average_db.toFixed(2)} dB</strong></span>)}</div><Plot className="terrain-chart" data={compareResult.scenarios.filter(scenario => scenario.profile).map((scenario, index) => ({ x: scenario.profile?.distances_m, y: scenario.profile?.heights_m, type: 'scatter' as const, mode: 'lines' as const, name: scenario.profile_name ? `${scenario.name} · ${scenario.profile_name}` : scenario.name, line: { color: palette.scenarios[index % 4], width: 2, dash: accessiblePatterns ? SCENARIO_DASHES[index % 4] : 'solid' } }))} layout={{ autosize: true, margin: { l: 48, r: 16, t: 12, b: 40 }, paper_bgcolor: 'transparent', plot_bgcolor: 'transparent', font: { color: '#9aabb5', family: 'Inter, sans-serif' }, xaxis: { title: t('distanceAxis'), gridcolor: '#263943', nticks: 14 }, yaxis: { title: t('altitudeAxis'), gridcolor: '#263943', nticks: 10 }, legend: { orientation: 'h' } }} config={{ responsive: true, displaylogo: false }} useResizeHandler style={{ width: '100%', height: '100%' }} /></>}
+          <div className="scenario-ray-list">{compareResult.scenarios.map((scenario, index) => <ScenarioRayTrace key={scenario.name} scenario={scenario} index={index} angles={compareResult.angles_deg} rayKinds={rayKinds} onToggle={kind => setRayKinds(current => ({ ...current, [kind]: !current[kind] }))} onHelp={() => setShowRayHelp(true)} accessibleColors={colorblindMode} accessiblePatterns={accessiblePatterns} locale={locale} />)}</div>
+          {compareResult.interpretation && <div className="interpretation"><small>{t('automaticReading')}</small><strong>{compareResult.interpretation.headline}</strong><p>{compareResult.interpretation.beginner}</p><p className="technical">{compareResult.interpretation.technical}</p><ul>{compareResult.interpretation.observations.map((observation, index) => <li key={index}>{observation}</li>)}</ul></div>}
+          {compareResult.limitations && <div className="limitations"><small>{t('modelLimits')}</small>{compareResult.limitations.map((limitation, index) => <p key={index}>• {limitation}</p>)}</div>}
+          <div className="exports"><small>{t('export')}</small>{['json', 'csv', 'png', 'svg', 'pdf'].map(format => <button key={format} type="button" onClick={() => exportComparison(format)}>{format.toUpperCase()}</button>)}</div>
         </> : result ? <>
-          <div className="metrics"><div><small>PICO DO PADRÃO</small><strong>{peak?.toFixed(2)} <b>dB</b></strong></div><div><small>ÂNGULO DO PICO</small><strong>{peakAngle?.toFixed(2)} <b>°</b></strong></div><div><small>MÉDIA INTEGRADA</small><strong>{result.metrics?.integrated_average_gain.average_db.toFixed(2)} <b>dB</b></strong></div><div><small>LARGURA −3 dB</small><strong>{result.metrics?.beamwidth_3db?.width_deg?.toFixed(2) ?? '—'} <b>°</b></strong></div><div><small>PONTOS DO PERFIL</small><strong>{profilePointCount(result.profile)}</strong></div><div><small>FIGURE OF MERIT</small><strong>{result.metrics?.figure_of_merit_db?.toFixed(2) ?? '—'} <b>dB</b></strong></div></div>
+          <div className="metrics"><div><small>{t('peakOfPattern')}</small><strong>{peak?.toFixed(2)} <b>dB</b></strong></div><div><small>{t('peakAngleLabel')}</small><strong>{peakAngle?.toFixed(2)} <b>°</b></strong></div><div><small>{t('integratedAverageLabel')}</small><strong>{result.metrics?.integrated_average_gain.average_db.toFixed(2)} <b>dB</b></strong></div><div><small>{t('beamwidth3db')}</small><strong>{result.metrics?.beamwidth_3db?.width_deg?.toFixed(2) ?? '—'} <b>°</b></strong></div><div><small>{t('profilePointsLabel')}</small><strong>{profilePointCount(result.profile)}</strong></div><div><small>FIGURE OF MERIT</small><strong>{result.metrics?.figure_of_merit_db?.toFixed(2) ?? '—'} <b>dB</b></strong></div></div>
           {result.aoa?.message && <div className="aoa-status">{result.aoa.message}</div>}
-          {result.aoa?.available && <div className="aoa-status">Estatística carregada: {result.aoa.band || 'banda compatível'} · {result.aoa.angles_deg.length} ângulos · {result.aoa.source || 'padrão do projeto'}</div>}
+          {result.aoa?.available && <div className="aoa-status">{tr('Estatística carregada:', 'Statistics loaded:', 'Estadística cargada:')} {result.aoa.band || t('compatibleBand')} · {result.aoa.angles_deg.length} {tr('ângulos', 'angles', 'ángulos')} · {result.aoa.source || t('projectDefault')}</div>}
           <Plot className="chart" data={resultPatternData} layout={patternLayout} config={{ responsive: true, displaylogo: false }} useResizeHandler style={{ width: '100%', height: '300px' }} />
-          <div className="terrain-heading"><small>PERFIL DO TERRENO</small><span>{profilePointCount(result.profile)} pontos · distância em metros</span></div>
-          <Plot className="terrain-chart" data={[{ x: result.profile.distances_m.slice(0, profilePointCount(result.profile)), y: result.profile.heights_m.slice(0, profilePointCount(result.profile)), type: 'scatter', mode: 'lines', line: { color: '#6bd48b', width: 2 }, hovertemplate: '%{x:.0f} m<br>%{y:.1f} m<extra></extra>' }]} layout={{ autosize: true, margin: { l: 48, r: 16, t: 12, b: 40 }, paper_bgcolor: 'transparent', plot_bgcolor: 'transparent', font: { color: '#9aabb5', family: 'Inter, sans-serif' }, xaxis: { title: 'Distância (m)', gridcolor: '#263943', nticks: 14 }, yaxis: { title: 'Altitude (m)', gridcolor: '#263943', autorange: true, nticks: 10 } }} config={{ responsive: true, displaylogo: false }} useResizeHandler style={{ width: '100%', height: '100%' }} />
-          {result.ray_trace?.available && <><div className="terrain-heading"><small>TRAÇADO DE RAIOS DO NÚCLEO</small><span>{visibleRays.length} trajetórias visíveis · {Object.values(result.ray_trace.counts).reduce((total, count) => total + count, 0)} calculadas</span><button type="button" className="ray-help-button" onClick={() => setShowRayHelp(true)} aria-label="Explicar os tipos de trajetória">?</button></div><div className="ray-controls">{Object.entries(rayLabels).map(([kind, label]) => <button type="button" key={kind} className={rayKinds[kind] ? 'ray-toggle active' : 'ray-toggle'} onClick={() => setRayKinds(current => ({ ...current, [kind]: !current[kind] }))} style={{ '--ray-color': rayColors[kind] } as CSSProperties}><i />{label} <small>{result.ray_trace?.counts[kind] || 0}</small></button>)}</div><Plot className="ray-chart" data={rayTraceData} layout={rayTraceLayout} config={{ responsive: true, displaylogo: false }} useResizeHandler style={{ width: '100%', height: '100%' }} /></>}
-          <div className="result-note">{result.configuration.diffraction_disable ? 'Difração desativada' : 'Difração incluída'} · reflexão e difração dupla do terreno · atmosfera não modelada · {result.configuration.frequency_mhz.toFixed(2)} MHz · {result.profile.source_units}</div>
-          {result.interpretation && <div className="interpretation"><small>LEITURA AUTOMÁTICA</small><strong>{result.interpretation.headline}</strong><p>{result.interpretation.beginner}</p><p className="technical">{result.interpretation.technical}</p><ul>{result.interpretation.observations.map((observation, index) => <li key={index}>{observation}</li>)}</ul></div>}
-          {result.limitations && <div className="limitations"><small>LIMITES DO MODELO</small>{result.limitations.map((limitation, index) => <p key={index}>• {limitation}</p>)}</div>}
-          <div className="exports"><small>EXPORTAR</small>{['json', 'csv', 'png', 'svg', 'pdf'].map(format => <button key={format} type="button" onClick={() => exportResult(format)}>{format.toUpperCase()}</button>)}</div>
-        </> : <div className="empty"><div className="empty-graphic"><span>⌁</span></div><strong>Seu padrão aparecerá aqui</strong><p>Preencha a configuração ao lado<br />e execute a primeira análise.</p></div>}
-        {(result || compareResult) && <div className="ai-box"><button type="button" className="ai-button" onClick={askAI} disabled={aiLoading}>{aiLoading ? 'Interpretando...' : '✦ Explicar resultado com IA'}</button>{aiError && <p className="ai-error">{aiError}</p>}{aiExplanation && <div className="ai-answer"><small>OPINIÃO TÉCNICA · confiança {aiExplanation.confianca}</small><strong>{aiExplanation.headline}</strong><p>{aiExplanation.for_leigo}</p>{compareResult && <p><b>Cenários analisados:</b> {aiExplanation.cenarios_analisados.join(', ')}</p>}<b>Melhor cenário: {aiExplanation.melhor_cenario}</b><ul>{aiExplanation.por_que.map((reason, index) => <li key={index}>{reason}</li>)}</ul><b>Recomendações:</b><ul>{aiExplanation.recomendacoes.map((recommendation, index) => <li key={index}>{recommendation}</li>)}</ul><p className="technical">Cuidados: {aiExplanation.cuidados.join(' ')}</p></div>}</div>}
+          <div className="terrain-heading"><small>{t('terrainProfile')}</small><span>{profilePointCount(result.profile)} {t('pointsWord')} · {t('distance').toLowerCase()}</span></div>
+          <Plot className="terrain-chart" data={[{ x: result.profile.distances_m.slice(0, profilePointCount(result.profile)), y: result.profile.heights_m.slice(0, profilePointCount(result.profile)), type: 'scatter', mode: 'lines', line: { color: '#6bd48b', width: 2 }, hovertemplate: '%{x:.0f} m<br>%{y:.1f} m<extra></extra>' }]} layout={{ autosize: true, margin: { l: 48, r: 16, t: 12, b: 40 }, paper_bgcolor: 'transparent', plot_bgcolor: 'transparent', font: { color: '#9aabb5', family: 'Inter, sans-serif' }, xaxis: { title: t('distanceAxis'), gridcolor: '#263943', nticks: 14 }, yaxis: { title: t('altitudeAxis'), gridcolor: '#263943', autorange: true, nticks: 10 } }} config={{ responsive: true, displaylogo: false }} useResizeHandler style={{ width: '100%', height: '100%' }} />
+          {result.ray_trace?.available && <><div className="terrain-heading"><small>{t('rayTraceCore')}</small><span>{visibleRays.length} {rayUi.visible} · {Object.values(result.ray_trace.counts).reduce((total, count) => total + count, 0)} {rayUi.calculated}</span><button type="button" className="ray-help-button" onClick={() => setShowRayHelp(true)} aria-label={rayUi.explain}>?</button></div><div className="ray-controls">{Object.entries(rayLabels).map(([kind, label]) => <button type="button" key={kind} className={rayKinds[kind] ? 'ray-toggle active' : 'ray-toggle'} onClick={() => setRayKinds(current => ({ ...current, [kind]: !current[kind] }))} style={{ '--ray-color': rayColors[kind] } as CSSProperties}><i />{label} <small>{result.ray_trace?.counts[kind] || 0}</small></button>)}</div><Plot className="ray-chart" data={rayTraceData} layout={rayTraceLayout} config={{ responsive: true, displaylogo: false }} useResizeHandler style={{ width: '100%', height: '100%' }} /></>}
+          <div className="result-note">{result.configuration.diffraction_disable ? t('noDiffraction') : t('diffraction')} · {tr('reflexão e difração dupla do terreno · atmosfera não modelada', 'terrain reflection and double diffraction · atmosphere not modeled', 'reflexión y doble difracción del terreno · atmósfera no modelada')} · {result.configuration.frequency_mhz.toFixed(2)} MHz · {result.profile.source_units}</div>
+          {result.interpretation && <div className="interpretation"><small>{t('automaticReading')}</small><strong>{result.interpretation.headline}</strong><p>{result.interpretation.beginner}</p><p className="technical">{result.interpretation.technical}</p><ul>{result.interpretation.observations.map((observation, index) => <li key={index}>{observation}</li>)}</ul></div>}
+          {result.limitations && <div className="limitations"><small>{t('modelLimits')}</small>{result.limitations.map((limitation, index) => <p key={index}>• {limitation}</p>)}</div>}
+          <div className="exports"><small>{t('export')}</small>{['json', 'csv', 'png', 'svg', 'pdf'].map(format => <button key={format} type="button" onClick={() => exportResult(format)}>{format.toUpperCase()}</button>)}</div>
+        </> : <div className="empty"><div className="empty-graphic"><span>⌁</span></div><strong>{t('emptyTitle')}</strong><p>{t('emptyText')}</p></div>}
+        {(result || compareResult) && <div className="ai-box"><button type="button" className="ai-button" onClick={askAI} disabled={aiLoading}>{aiLoading ? t('interpreting') : t('explainResult')}</button>{aiError && <p className="ai-error">{aiError}</p>}{aiExplanation && <div className="ai-answer"><small>{tr('OPINIÃO TÉCNICA', 'TECHNICAL OPINION', 'OPINIÓN TÉCNICA')} · {tr('confiança', 'confidence', 'confianza')} {aiExplanation.confianca}</small><strong>{aiExplanation.headline}</strong><p>{aiExplanation.for_leigo}</p>{compareResult && <p><b>{tr('Cenários analisados:', 'Scenarios analyzed:', 'Escenarios analizados:')}</b> {aiExplanation.cenarios_analisados.join(', ')}</p>}<b>{tr('Melhor cenário:', 'Best scenario:', 'Mejor escenario:')} {aiExplanation.melhor_cenario}</b><ul>{aiExplanation.por_que.map((reason, index) => <li key={index}>{reason}</li>)}</ul><b>{tr('Recomendações:', 'Recommendations:', 'Recomendaciones:')}</b><ul>{aiExplanation.recomendacoes.map((recommendation, index) => <li key={index}>{recommendation}</li>)}</ul><p className="technical">{tr('Cuidados:', 'Cautions:', 'Precauciones:')} {aiExplanation.cuidados.join(' ')}</p></div>}</div>}
       </section>
     </section>
     {showHelp && <div className="modal-backdrop" role="presentation" onMouseDown={event => { if (event.target === event.currentTarget) setShowHelp(false) }}>
       <section className="help-modal" role="dialog" aria-modal="true" aria-labelledby="help-title">
-        <div className="help-modal-header"><div><p className="eyebrow">GUIA RÁPIDO</p><h2 id="help-title">O que significa cada campo?</h2></div><button type="button" className="modal-close" onClick={() => setShowHelp(false)} aria-label="Fechar explicações">×</button></div>
-        <p className="help-intro">Esses parâmetros descrevem uma análise de padrão de elevação de uma antena HF sobre um perfil de terreno. O núcleo calcula em pés internamente, mas você pode informar e interpretar os valores em metros.</p>
-        <div className="help-list">{helpItems.map(([title, description]) => <article key={title}><h3>{title}</h3><p>{description}</p></article>)}</div>
-        <div className="help-tip"><strong>Dica para começar</strong><p>Use o perfil real, frequência da sua banda, altura medida da antena, difração ligada e os valores de solo padrão. Depois compare alturas ou tipos de antena para entender qual cenário favorece seu objetivo.</p></div>
+        <div className="help-modal-header"><div><p className="eyebrow">{t('quickGuide')}</p><h2 id="help-title">{t('helpTitle')}</h2></div><button type="button" className="modal-close" onClick={() => setShowHelp(false)} aria-label={t('close')}>×</button></div>
+        <p className="help-intro">{t('helpIntro')}</p>
+        <div className="help-list">{localizedHelpItems.map(([title, description]) => <article key={title}><h3>{title}</h3><p>{description}</p></article>)}</div>
+        <div className="help-tip"><strong>{t('helpTip')}</strong><p>{locale === 'en' ? 'Use the real profile, your band frequency, measured antenna height, diffraction enabled, and the default ground values. Then compare heights or antenna types to see which scenario best serves your objective.' : locale === 'es' ? 'Use el perfil real, la frecuencia de su banda, la altura medida de la antena, la difracción activada y los valores predeterminados del suelo. Después compare alturas o tipos de antena para entender qué escenario favorece su objetivo.' : 'Use o perfil real, frequência da sua banda, altura medida da antena, difração ligada e os valores de solo padrão. Depois compare alturas ou tipos de antena para entender qual cenário favorece seu objetivo.'}</p></div>
       </section>
     </div>}
     {showRayHelp && <div className="modal-backdrop" role="presentation" onMouseDown={event => { if (event.target === event.currentTarget) setShowRayHelp(false) }}>
       <section className="help-modal" role="dialog" aria-modal="true" aria-labelledby="ray-help-title">
-        <div className="help-modal-header"><div><p className="eyebrow">TRAÇADO DO NÚCLEO</p><h2 id="ray-help-title">Como ler as trajetórias?</h2></div><button type="button" className="modal-close" onClick={() => setShowRayHelp(false)} aria-label="Fechar explicações do traçado">×</button></div>
-        <p className="help-intro">O gráfico mostra caminhos geométricos calculados sobre o perfil. A linha representa o percurso; ela não é, sozinha, uma medição de potência recebida.</p>
-        <div className="help-list">{rayHelpItems.map(([title, description]) => <article key={title}><h3>{title}</h3><p>{description}</p></article>)}</div>
-        <div className="help-tip"><strong>Interações no gráfico</strong><p>Use os botões coloridos para ocultar ou exibir categorias. A legenda e o texto ao passar o mouse identificam o tipo, o ângulo de saída, o ganho estimado e a distância.</p></div>
+        <div className="help-modal-header"><div><p className="eyebrow">{t('rayTraceCore')}</p><h2 id="ray-help-title">{t('rayHelpTitle')}</h2></div><button type="button" className="modal-close" onClick={() => setShowRayHelp(false)} aria-label={t('close')}>×</button></div>
+        <p className="help-intro">{t('rayHelpIntro')}</p>
+        <div className="help-list">{localizedRayHelpItems.map(([title, description]) => <article key={title}><h3>{title}</h3><p>{description}</p></article>)}</div>
+        <div className="help-tip"><strong>{t('rayTip')}</strong><p>{locale === 'en' ? 'Use the colored buttons to hide or show categories. The legend and hover text identify the type, departure angle, estimated gain, and distance.' : locale === 'es' ? 'Use los botones de colores para ocultar o mostrar categorías. La leyenda y el texto al pasar el cursor identifican el tipo, el ángulo de salida, la ganancia estimada y la distancia.' : 'Use os botões coloridos para ocultar ou exibir categorias. A legenda e o texto ao passar o mouse identificam o tipo, o ângulo de saída, o ganho estimado e a distância.'}</p></div>
       </section>
     </div>}
     {showFeedback && <div className="modal-backdrop" role="presentation" onMouseDown={event => { if (event.target === event.currentTarget) setShowFeedback(false) }}>
       <section className="help-modal feedback-modal" role="dialog" aria-modal="true" aria-labelledby="feedback-title">
-        <div className="help-modal-header"><div><p className="eyebrow">COLABORAÇÃO OPEN SOURCE</p><h2 id="feedback-title">Conte como podemos melhorar</h2></div><button type="button" className="modal-close" onClick={() => setShowFeedback(false)} aria-label="Fechar formulário de colaboração">×</button></div>
-        <p className="help-intro">Sugestões, correções e ideias de novos recursos são muito bem-vindas. Se quiser uma resposta, informe seu e-mail; ele será usado apenas para retornarmos sobre esta mensagem.</p>
+        <div className="help-modal-header"><div><p className="eyebrow">{t('openSourceCollab')}</p><h2 id="feedback-title">{t('feedbackTitle')}</h2></div><button type="button" className="modal-close" onClick={() => setShowFeedback(false)} aria-label={t('close')}>×</button></div>
+        <p className="help-intro">{t('feedbackIntro')}</p>
         <div className={`feedback-form-shell${feedbackFormHidden ? ' feedback-form-shell-hidden' : ''}`}>
-          {feedbackSent && <div className="feedback-success-overlay" role="status" aria-live="polite"><strong>{feedbackStatus || 'Obrigado pela colaboração!'}</strong>{feedbackFormHidden ? <button type="button" className="submit feedback-new-button" onClick={startNewFeedback}>Enviar outra sugestão <span>→</span></button> : <small>O formulário será liberado novamente em {feedbackCountdown}s.</small>}</div>}
+          {feedbackSent && <div className="feedback-success-overlay" role="status" aria-live="polite"><strong>{feedbackStatus || tr('Obrigado pela colaboração!', 'Thank you for helping!', '¡Gracias por colaborar!')}</strong>{feedbackFormHidden ? <button type="button" className="submit feedback-new-button" onClick={startNewFeedback}>{t('newSuggestion')} <span>→</span></button> : <small>{tr(`O formulário será liberado novamente em ${feedbackCountdown}s.`, `The form will be available again in ${feedbackCountdown}s.`, `El formulario estará disponible nuevamente en ${feedbackCountdown}s.`)}</small>}</div>}
           {!feedbackFormHidden && <form className={`feedback-form${feedbackSent ? ' feedback-form-obscured' : ''}`} onSubmit={submitFeedback}>
           <label className="feedback-honeypot" aria-hidden="true">Website<input tabIndex={-1} autoComplete="off" name="website" /></label>
-          <div className="feedback-fields"><label>Nome (opcional)<input value={feedbackName} onChange={event => setFeedbackName(event.target.value)} maxLength={120} placeholder="Como podemos chamar você?" /></label><label>E-mail para retorno<input required type="email" value={feedbackEmail} onChange={event => setFeedbackEmail(event.target.value)} placeholder="voce@exemplo.com" /></label></div>
-          <label>Assunto<select value={feedbackCategory} onChange={event => setFeedbackCategory(event.target.value)}><option>Sugestão</option><option>Correção de resultado</option><option>Problema na interface</option><option>Novo recurso</option><option>Outro</option></select></label>
-          <label>Mensagem<textarea required value={feedbackMessage} onChange={event => setFeedbackMessage(event.target.value)} maxLength={4000} rows={7} placeholder="Descreva sua ideia, dificuldade ou sugestão…" /></label>
-          <div className="feedback-captcha"><div ref={feedbackCaptchaRef} className="cf-turnstile" data-sitekey={TURNSTILE_SITE_KEY} data-action="turnstile-spin-v2" /><small>Verificação de segurança para evitar mensagens automáticas.</small></div>
+          <div className="feedback-fields"><label>{t('optionalName')}<input value={feedbackName} onChange={event => setFeedbackName(event.target.value)} maxLength={120} placeholder={tr('Como podemos chamar você?', 'How should we address you?', '¿Cómo podemos llamarle?')} /></label><label>{t('replyEmail')}<input required type="email" value={feedbackEmail} onChange={event => setFeedbackEmail(event.target.value)} placeholder="you@example.com" /></label></div>
+          <label>{t('subject')}<select value={feedbackCategory} onChange={event => setFeedbackCategory(event.target.value)}><option value="suggestion">{tr('Sugestão', 'Suggestion', 'Sugerencia')}</option><option value="result-correction">{tr('Correção de resultado', 'Result correction', 'Corrección de resultado')}</option><option value="interface-issue">{tr('Problema na interface', 'Interface issue', 'Problema en la interfaz')}</option><option value="new-feature">{tr('Novo recurso', 'New feature', 'Nueva función')}</option><option value="other">{tr('Outro', 'Other', 'Otro')}</option></select></label>
+          <label>{t('message')}<textarea required value={feedbackMessage} onChange={event => setFeedbackMessage(event.target.value)} maxLength={4000} rows={7} placeholder={tr('Descreva sua ideia, dificuldade ou sugestão…', 'Describe your idea, difficulty, or suggestion…', 'Describa su idea, dificultad o sugerencia…')} /></label>
+          <div className="feedback-captcha"><div ref={feedbackCaptchaRef} className="cf-turnstile" data-sitekey={TURNSTILE_SITE_KEY} data-action="turnstile-spin-v2" /><small>{t('securityCheck')}</small></div>
           {feedbackError && <div className="error" role="alert">{feedbackError}</div>}
-          <button className="submit" disabled={feedbackLoading}>{feedbackLoading ? 'Enviando…' : 'Enviar mensagem'} <span>→</span></button>
+          <button className="submit" disabled={feedbackLoading}>{feedbackLoading ? t('sending') : t('sendMessage')} <span>→</span></button>
           </form>}
         </div>
       </section>
     </div>}
     <footer className="site-footer">
-      <strong>OpenHFTA <span>·</span> preservando a inteligência do HFTA para sistemas modernos</strong>
-      <small>Projeto mantido pelo Rio DX Group · Desenvolvimento técnico: <a href="https://www.qrz.com/db/PY2UID" target="_blank" rel="noreferrer">Paulo Matias — PY2UID ↗</a> · Integração web: Fernando Fernandes — <a href="https://www.qrz.com/db/PT9TI" target="_blank" rel="noreferrer">PT9TI ↗</a></small>
+      <strong>OpenHFTA <span>·</span> {t('footer')}</strong>
+      <small>{t('footerMaintained')} <a href="https://www.qrz.com/db/PY2UID" target="_blank" rel="noreferrer">Paulo Matias — PY2UID ↗</a> · {t('footerWebIntegration')} <a href="https://www.qrz.com/db/PT9TI" target="_blank" rel="noreferrer">PT9TI ↗</a></small>
     </footer>
   </main>
 }

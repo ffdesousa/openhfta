@@ -29,7 +29,7 @@ from openhfta_core.exceptions import OpenHFTAError
 from openhfta_core.library import find_ytw_core_library
 from openhfta_core.metrics import summarize_pattern, compare_patterns, compute_fom
 from openhfta_core.interpretation import interpret_pattern, interpret_comparison
-from openhfta_core.exports import result_csv, result_figure, result_json
+from openhfta_core.exports import comparison_csv, comparison_figure, result_csv, result_figure, result_json
 from openhfta_core.ai import AIUnavailable, ai_status, explain_with_ai
 from openhfta_core.models import AnalysisConfig
 from openhfta_core.profiles import parse_height_and_phase, parse_profile
@@ -214,7 +214,7 @@ def _validate_polarization(value: str) -> str:
     return value
 
 
-def _serialize_result(result) -> dict:
+def _serialize_result(result, locale: str = "pt-BR") -> dict:
     effective_points = min(
         int(result.metadata.get("profile_points", len(result.profile.distances_ft))),
         len(result.profile.distances_ft),
@@ -300,21 +300,43 @@ def _serialize_result(result) -> dict:
         "warnings": result.warnings,
         "metadata": result.metadata,
         "ray_trace": client_trace,
-        "limitations": _model_limitations(result.config.polarization),
+        "limitations": _model_limitations(result.config.polarization, locale),
         "metrics": metrics,
-        "interpretation": interpret_pattern(metrics, full_trace, {"distances_m": distances_m, "heights_m": heights_m}),
+        "interpretation": interpret_pattern(metrics, full_trace, {"distances_m": distances_m, "heights_m": heights_m}, locale),
     }
 
 
-def _model_limitations(polarization: str = "horizontal") -> list[str]:
-    return [
+_MODEL_LIMITATIONS_TEXT = {
+    "pt-BR": [
         "O modelo representa um perfil bidimensional por azimute; não é uma simulação 3D completa.",
-        f"O núcleo trabalha com polarização {polarization} e modelos simplificados de antena.",
+        "O núcleo trabalha com polarização {polarization} e modelos simplificados de antena.",
         "Na polarização vertical, a reflexão usa Fresnel TM e a difração usa a combinação hard/TM do UTD escalar 2D; a validação contra referências externas continua necessária.",
         "O modelo de empilhamento não calcula acoplamento mútuo entre elementos muito próximos.",
         "A análise é uma estimativa de padrão de elevação, não uma garantia de enlace ou de intensidade recebida.",
         "A precisão depende da qualidade do DEM/perfil e pode apresentar artefatos em passos de 0,25°.",
-    ]
+    ],
+    "en": [
+        "The model represents a two-dimensional profile per azimuth; it is not a full 3D simulation.",
+        "The core works with {polarization} polarization and simplified antenna models.",
+        "In vertical polarization, reflection uses Fresnel TM and diffraction uses the hard/TM combination of the 2D scalar UTD; validation against external references is still required.",
+        "The stacking model does not compute mutual coupling between elements that are very close together.",
+        "The analysis is an elevation-pattern estimate, not a guarantee of link performance or received signal strength.",
+        "Accuracy depends on the quality of the DEM/profile and may show artifacts at 0.25° steps.",
+    ],
+    "es": [
+        "El modelo representa un perfil bidimensional por azimut; no es una simulación 3D completa.",
+        "El núcleo trabaja con polarización {polarization} y modelos simplificados de antena.",
+        "En la polarización vertical, la reflexión usa Fresnel TM y la difracción usa la combinación hard/TM del UTD escalar 2D; sigue siendo necesaria la validación con referencias externas.",
+        "El modelo de apilamiento no calcula el acoplamiento mutuo entre elementos muy próximos.",
+        "El análisis es una estimación del patrón de elevación, no una garantía de enlace ni de intensidad recibida.",
+        "La precisión depende de la calidad del DEM/perfil y puede presentar artefactos en pasos de 0,25°.",
+    ],
+}
+
+
+def _model_limitations(polarization: str = "horizontal", locale: str = "pt-BR") -> list[str]:
+    lines = _MODEL_LIMITATIONS_TEXT.get(locale, _MODEL_LIMITATIONS_TEXT["pt-BR"])
+    return [line.format(polarization=polarization) if "{polarization}" in line else line for line in lines]
 
 
 def _flat_profile_content(content: bytes, units: str) -> bytes:
@@ -431,6 +453,7 @@ async def analyze_endpoint(
     no_diffraction: Annotated[bool, Form()] = False,
     move_tower: Annotated[float, Form()] = 0.0,
     export_format: Annotated[str, Form()] = "json",
+    locale: Annotated[str, Form()] = "pt-BR",
 ):
     """Validate one profile and run one synchronous core analysis."""
     if units not in ("meters", "feet"):
@@ -484,7 +507,7 @@ async def analyze_endpoint(
         raise HTTPException(422, str(exc)) from exc
     except OSError as exc:
         raise HTTPException(400, f"could not read profile: {exc}") from exc
-    payload = _attach_plot_data(_serialize_result(result), flat_result, aoa_data, aoa_band, aoa_source)
+    payload = _attach_plot_data(_serialize_result(result, locale), flat_result, aoa_data, aoa_band, aoa_source)
     payload["sources"] = {"profile_name": profile.filename, "prn_name": aoa_source}
     if export_format == "json":
         return JSONResponse(payload)
@@ -492,7 +515,7 @@ async def analyze_endpoint(
         return Response(result_csv(payload), media_type="text/csv", headers={"Content-Disposition": "attachment; filename=openhfta-pattern.csv"})
     if export_format in ("png", "svg", "pdf"):
         media = {"png": "image/png", "svg": "image/svg+xml", "pdf": "application/pdf"}[export_format]
-        return Response(result_figure(payload, export_format), media_type=media, headers={"Content-Disposition": f"attachment; filename=openhfta-pattern.{export_format}"})
+        return Response(result_figure(payload, export_format, locale), media_type=media, headers={"Content-Disposition": f"attachment; filename=openhfta-pattern.{export_format}"})
     raise HTTPException(422, "export_format must be json, csv, png, svg or pdf")
 
 
@@ -515,6 +538,8 @@ async def compare_endpoint(
     no_diffraction: Annotated[bool, Form()] = False,
     move_tower: Annotated[float, Form()] = 0.0,
     scenario_configs: Annotated[str | None, Form()] = None,
+    export_format: Annotated[str, Form()] = "json",
+    locale: Annotated[str, Form()] = "pt-BR",
 ):
     """Run two to four antenna/height/profile scenarios and compare them."""
     uploaded_profiles = list(profiles or [])
@@ -582,7 +607,7 @@ async def compare_endpoint(
         for result, flat_result, config, filename in results:
             metrics = summarize_pattern(result.angles_deg, result.pattern_db)
             aoa_data, aoa_source = _scenario_aoa(config, aoa_band, uploaded_prns, shared_aoa)
-            serialized = _attach_plot_data(_serialize_result(result), flat_result, aoa_data, aoa_band, aoa_source)
+            serialized = _attach_plot_data(_serialize_result(result, locale), flat_result, aoa_data, aoa_band, aoa_source)
             scenario_payload.append({
                 "name": config.get("name") or f"{config['antenna_type']} / {config['heights']}",
                 "heights_input": config["heights"],
@@ -593,7 +618,7 @@ async def compare_endpoint(
                 "angles_deg": result.angles_deg.tolist(),
                 "pattern_db": result.pattern_db.tolist(),
                 "metrics": serialized["metrics"],
-                "interpretation": interpret_pattern(serialized["metrics"], serialized["ray_trace"], serialized["profile"]),
+                "interpretation": interpret_pattern(serialized["metrics"], serialized["ray_trace"], serialized["profile"], locale),
                 "configuration": serialized["configuration"],
                 "metadata": serialized["metadata"],
                 "warnings": serialized["warnings"],
@@ -604,17 +629,25 @@ async def compare_endpoint(
                 "profile": serialized["profile"],
                 "ray_trace": serialized["ray_trace"],
             })
-        return {
+        payload = {
             "angles_deg": first.angles_deg.tolist(),
             "scenarios": scenario_payload,
             "comparison": comparison,
-            "interpretation": interpret_comparison(scenario_payload, comparison),
-            "limitations": _model_limitations(polarization),
+            "interpretation": interpret_comparison(scenario_payload, comparison, locale),
+            "limitations": _model_limitations(polarization, locale),
         }
     except (ValueError, OpenHFTAError) as exc:
         raise HTTPException(422, str(exc)) from exc
     except OSError as exc:
         raise HTTPException(400, f"could not read profile: {exc}") from exc
+    if export_format == "json":
+        return JSONResponse(payload)
+    if export_format == "csv":
+        return Response(comparison_csv(payload), media_type="text/csv", headers={"Content-Disposition": "attachment; filename=openhfta-comparison.csv"})
+    if export_format in ("png", "svg", "pdf"):
+        media = {"png": "image/png", "svg": "image/svg+xml", "pdf": "application/pdf"}[export_format]
+        return Response(comparison_figure(payload, export_format, locale), media_type=media, headers={"Content-Disposition": f"attachment; filename=openhfta-comparison.{export_format}"})
+    raise HTTPException(422, "export_format must be json, csv, png, svg or pdf")
 
 
 # When the production bundle exists, the same process serves both the API and
