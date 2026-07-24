@@ -33,6 +33,22 @@ RAY_LABELS = {
     "double_diffracted": "Difração dupla",
     "reflected_double_diffracted": "Reflexão + dupla difração",
 }
+ACCESSIBLE_RAY_COLORS = {
+    "direct": "#0072b2",
+    "reflected": "#56b4e9",
+    "diffracted": "#d55e00",
+    "reflected_diffracted": "#e69f00",
+    "double_diffracted": "#cc79a7",
+    "reflected_double_diffracted": "#f0e442",
+}
+RAY_LINE_STYLES = {
+    "direct": "-",
+    "reflected": "--",
+    "diffracted": ":",
+    "reflected_diffracted": "-.",
+    "double_diffracted": (0, (1, 1)),
+    "reflected_double_diffracted": (0, (5, 1, 1, 1)),
+}
 
 
 def result_json(payload: dict) -> bytes:
@@ -138,16 +154,58 @@ def _plot_rays(axis, payload: dict) -> None:
         antenna_height = (payload.get("configuration", {}).get("antenna_heights_m") or [0])[0]
         axis.scatter([0], [heights[0] + _safe_float(antenna_height)], color=WEB["orange"], marker="^", s=48, label="Antena", zorder=5)
     trace = payload.get("ray_trace") or {}
-    shown = set()
+    terrain_end = float(distances[points - 1]) if points else 0.0
+
+    def terrain_at(distance: float) -> float:
+        if not points:
+            return 0.0
+        return float(np.interp(distance, distances[:points], heights[:points]))
+
+    def gain_at(angle: float) -> float:
+        angles = np.asarray(payload.get("angles_deg", []), dtype=float)
+        pattern = np.asarray(payload.get("flat_pattern_db") or payload.get("pattern_db", []), dtype=float)
+        if not len(angles) or not len(pattern):
+            return 0.0
+        index = int(np.argmin(np.abs(angles - abs(float(angle)))))
+        return float(pattern[min(index, len(pattern) - 1)])
+
+    candidates = []
     for path in trace.get("paths", []):
         kind = path.get("kind", "other")
-        x = np.asarray(path.get("distances_m", []), dtype=float) / 1000
-        y = np.asarray(path.get("heights_m", []), dtype=float)
-        if len(x) < 2:
+        raw_x = np.asarray(path.get("distances_m", []), dtype=float)
+        raw_y = np.asarray(path.get("heights_m", []), dtype=float)
+        count = min(len(raw_x), len(raw_y))
+        if count < 2:
             continue
-        label = RAY_LABELS.get(kind, kind)
-        axis.plot(x, y, color=WEB["rays"].get(kind, WEB["blue"]), linewidth=.7, alpha=.28, label=label if kind not in shown else "")
-        shown.add(kind)
+        raw_x, raw_y = raw_x[:count], raw_y[:count]
+        frame = raw_x <= terrain_end + 0.01
+        if not frame.any() or float(np.max(raw_y[frame])) > 1000:
+            continue
+        clipped = [(float(x), float(y)) for x, y in zip(raw_x, raw_y) if x <= terrain_end]
+        crossing = np.flatnonzero(raw_x > terrain_end)
+        if crossing.size and len(clipped) and crossing[0] > 0:
+            index = int(crossing[0])
+            x0, x1 = raw_x[index - 1], raw_x[index]
+            y0, y1 = raw_y[index - 1], raw_y[index]
+            ratio = 0.0 if x1 == x0 else (terrain_end - x0) / (x1 - x0)
+            clipped.append((terrain_end, float(y0 + (y1 - y0) * ratio)))
+        if len(clipped) < 2:
+            continue
+        if kind == "double_diffracted" and not any(abs(y - terrain_at(x)) < 4 for x, y in clipped):
+            continue
+        candidates.append({"kind": kind, "angle": float(path.get("angle_deg", 0.0)), "points": clipped})
+
+    gains = [gain_at(path["angle"]) for path in candidates]
+    low_gain = min(gains, default=0.0)
+    high_gain = max(gains, default=1.0)
+    shown = set()
+    for path, gain in zip(candidates, gains):
+        weight = .45 if high_gain == low_gain else .14 + .38 * ((gain - low_gain) / (high_gain - low_gain))
+        label = RAY_LABELS.get(path["kind"], path["kind"])
+        x = [point[0] / 1000 for point in path["points"]]
+        y = [point[1] for point in path["points"]]
+        axis.plot(x, y, color=ACCESSIBLE_RAY_COLORS.get(path["kind"], WEB["blue"]), linewidth=(1.05 if path["kind"] == "direct" else .65) + weight, alpha=max(weight, .32), linestyle=RAY_LINE_STYLES.get(path["kind"], "-"), label=label if path["kind"] not in shown else "")
+        shown.add(path["kind"])
     _style_axis(axis, x_label="Distância (km)", y_label="Altura (m)", title="TRAÇADO DE RAIOS DO NÚCLEO")
     if points:
         axis.set_xlim(0, max(0.5, distances[points - 1] / 1000))
@@ -162,7 +220,7 @@ def _plot_rays(axis, payload: dict) -> None:
     degrees_axis.spines["left"].set_visible(False)
     degrees_axis.spines["bottom"].set_visible(False)
     if shown or points:
-        axis.legend(loc="upper center", bbox_to_anchor=(.5, -0.16), ncol=3, facecolor=WEB["panel"], edgecolor=WEB["grid"], labelcolor=WEB["text"], fontsize=8)
+        axis.legend(loc="upper center", bbox_to_anchor=(.5, -0.23), ncol=3, facecolor=WEB["panel"], edgecolor=WEB["grid"], labelcolor=WEB["text"], fontsize=14, handlelength=2.8, handletextpad=.8, columnspacing=1.4, borderpad=.8)
 
 
 def _add_metrics(figure, payload: dict) -> None:
@@ -183,15 +241,15 @@ def _add_metrics(figure, payload: dict) -> None:
 
 def result_figure(payload: dict, image_format: str) -> bytes:
     """Render the same information hierarchy shown by the web result panel."""
-    figure = plt.figure(figsize=(26, 32), facecolor=WEB["background"])
+    figure = plt.figure(figsize=(26, 36), facecolor=WEB["background"])
     figure.text(.08, .968, "OpenHFTA", color=WEB["text"], fontsize=24, fontweight="bold")
     figure.text(.08, .946, "HF TERRAIN ANALYSIS  ·  RELATÓRIO DE ANÁLISE", color=WEB["orange"], fontsize=10, fontweight="bold")
     figure.text(.08, .924, _configuration_text(payload), color=WEB["muted"], fontsize=10)
     figure.text(.08, .907, _sources_text(payload), color=WEB["muted"], fontsize=9)
     _add_metrics(figure, payload)
-    pattern_axis = figure.add_axes([.08, .70, .84, .18])
-    terrain_axis = figure.add_axes([.08, .44, .84, .18])
-    ray_axis = figure.add_axes([.08, .10, .84, .28])
+    pattern_axis = figure.add_axes([.08, .75, .84, .17])
+    terrain_axis = figure.add_axes([.08, .51, .84, .16])
+    ray_axis = figure.add_axes([.08, .15, .84, .24])
     _plot_pattern(pattern_axis, payload)
     _plot_terrain(terrain_axis, payload)
     _plot_rays(ray_axis, payload)
