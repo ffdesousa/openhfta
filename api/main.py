@@ -227,6 +227,32 @@ def _default_aoa_for_band(band: str | None, filename: str | None = None) -> tupl
     return None, None
 
 
+def _parse_aoa_content(content: bytes | None, filename: str | None, band: str | None) -> tuple[dict[int, float] | None, str | None]:
+    """Parse an uploaded PRN, preserving its filename as the result source."""
+    if not content or not filename:
+        return None, None
+    data = parse_prn_multiband(content.decode("utf-8", errors="replace"), band)
+    return data, filename
+
+
+def _scenario_aoa(
+    config: dict,
+    band: str | None,
+    uploaded_prns: list[tuple[str, bytes]],
+    shared_aoa: tuple[dict[int, float] | None, str | None],
+) -> tuple[dict[int, float] | None, str | None]:
+    """Resolve one scenario's PRN, falling back to the shared PRN."""
+    upload_index = config.get("prn_upload_index")
+    if upload_index is not None:
+        if not isinstance(upload_index, int) or not 0 <= upload_index < len(uploaded_prns):
+            raise ValueError("prn_upload_index does not reference an uploaded .PRN")
+        filename, content = uploaded_prns[upload_index]
+        return _parse_aoa_content(content, filename, band)
+    if config.get("prn_default"):
+        return _default_aoa_for_band(band, str(config["prn_default"]))
+    return shared_aoa
+
+
 def _attach_plot_data(payload: dict, flat_result=None, aoa_data: dict[int, float] | None = None,
                       aoa_band: str | None = None, aoa_source: str | None = None) -> dict:
     if flat_result is not None:
@@ -347,6 +373,7 @@ async def compare_endpoint(
     frequency: Annotated[str, Form()],
     profile: Annotated[UploadFile | None, File(description="Terrain profile in .PRO format")]=None,
     profiles: Annotated[list[UploadFile] | None, File(description="Up to four terrain profiles in .PRO format")]=None,
+    scenario_prns: Annotated[list[UploadFile] | None, File(description="Scenario-specific .PRN files, indexed by scenario_configs")]=None,
     aoa_file: Annotated[UploadFile | None, File(description="Optional angle-of-arrival statistics .PRN")]=None,
     aoa_default: Annotated[str | None, Form()] = None,
     heights_a: Annotated[str, Form()] = "10",
@@ -380,28 +407,39 @@ async def compare_endpoint(
         for config in configs:
             if not isinstance(config, dict) or config.get("antenna_type") not in ANTENNA_TYPES or not config.get("heights"):
                 raise ValueError("each scenario needs antenna_type and heights")
+            profile_index = config.get("profile_upload_index")
+            if profile_index is not None and (not isinstance(profile_index, int) or profile_index < 0):
+                raise ValueError("profile_upload_index must be a non-negative integer")
         if len(uploaded_profiles) not in (1, len(configs)):
             raise ValueError("Envie um único perfil .PRO para todos os cenários ou um perfil .PRO para cada cenário")
     except (ValueError, json.JSONDecodeError) as exc:
         raise HTTPException(422, str(exc)) from exc
     try:
         frequency_mhz = parse_frequency(frequency)
-        aoa_data = None
+        shared_aoa = (None, None)
         aoa_band = frequency_to_band(frequency_mhz)
-        aoa_source = None
         if aoa_file is not None and aoa_file.filename:
             aoa_content = await aoa_file.read()
             if len(aoa_content) > MAX_PROFILE_BYTES:
                 raise ValueError("arquivo .PRN muito grande")
-            aoa_data = parse_prn_multiband(aoa_content.decode("utf-8", errors="replace"), aoa_band)
-            aoa_source = aoa_file.filename
+            shared_aoa = _parse_aoa_content(aoa_content, aoa_file.filename, aoa_band)
         else:
-            aoa_data, aoa_source = _default_aoa_for_band(aoa_band, aoa_default)
+            shared_aoa = _default_aoa_for_band(aoa_band, aoa_default)
+        uploaded_prns: list[tuple[str, bytes]] = []
+        for prn in scenario_prns or []:
+            if not prn.filename:
+                continue
+            content = await prn.read()
+            if len(content) > MAX_PROFILE_BYTES:
+                raise ValueError("arquivo .PRN muito grande")
+            uploaded_prns.append((prn.filename, content))
         profile_contents = [await source.read() for source in uploaded_profiles]
         flat_contents = [_flat_profile_content(content, units) for content in profile_contents]
         results = []
         for index, config in enumerate(configs):
-            source_index = 0 if len(profile_contents) == 1 else index
+            source_index = config.get("profile_upload_index", 0 if len(profile_contents) == 1 else index)
+            if source_index >= len(profile_contents):
+                raise ValueError("profile_upload_index does not reference an uploaded .PRO")
             real_result = _run_uploaded_analysis(profile_contents[source_index], frequency, units, config["heights"], config["antenna_type"], soil_epsr, soil_sigma, no_diffraction, move_tower)
             flat_result = _run_uploaded_analysis(flat_contents[source_index], frequency, units, config["heights"], config["antenna_type"], soil_epsr, soil_sigma, no_diffraction, move_tower)
             results.append((real_result, flat_result, config, uploaded_profiles[source_index].filename))
@@ -412,10 +450,14 @@ async def compare_endpoint(
         scenario_payload = []
         for result, flat_result, config, filename in results:
             metrics = summarize_pattern(result.angles_deg, result.pattern_db)
+            aoa_data, aoa_source = _scenario_aoa(config, aoa_band, uploaded_prns, shared_aoa)
             serialized = _attach_plot_data(_serialize_result(result), flat_result, aoa_data, aoa_band, aoa_source)
             scenario_payload.append({
                 "name": config.get("name") or f"{config['antenna_type']} / {config['heights']}",
+                "heights_input": config["heights"],
+                "antenna_type": config["antenna_type"],
                 "profile_name": filename,
+                "prn_name": aoa_source,
                 "angles_deg": result.angles_deg.tolist(),
                 "pattern_db": result.pattern_db.tolist(),
                 "metrics": serialized["metrics"],

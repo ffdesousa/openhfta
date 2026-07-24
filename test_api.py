@@ -57,6 +57,11 @@ class TestAPI(unittest.TestCase):
         self.assertIn("beamwidth_3db", payload["metrics"])
         self.assertAlmostEqual(payload["metrics"]["peak"]["angle_deg"], 27.25)
         self.assertIn("beginner", payload["interpretation"])
+        ray_counts = payload["ray_trace"]["counts"]
+        self.assertTrue(payload["ray_trace"]["available"])
+        self.assertIn("direct", ray_counts)
+        self.assertIn("reflected", ray_counts)
+        self.assertTrue(any(kind in ray_counts for kind in ("reflected_diffracted", "double_diffracted", "reflected_double_diffracted")))
 
     def test_csv_export(self):
         profile = ROOT / "test/pro/PR1T-torre1-332.00.PRO"
@@ -113,6 +118,51 @@ class TestAPI(unittest.TestCase):
         self.assertEqual(len(payload["comparison"]["pairwise"]), 3)
         self.assertEqual(len(payload["scenarios"][0]["profile"]["distances_m"]), 148)
         self.assertTrue(payload["limitations"])
+
+    def test_compare_scenarios_with_individual_prns(self):
+        profile = ROOT / "test/pro/PR1T-torre1-332.00.PRO"
+        profile_bytes = profile.read_bytes()
+        prn_20m = b"North\nElev      20m\n 1        10.0\n 5        20.0\n10        30.0\n"
+        prn_10m = b"South\nElev      20m\n 1        30.0\n 5        20.0\n10        10.0\n"
+        configs = [
+            {"name": "Norte", "heights": "10", "antenna_type": "Dipole", "prn_upload_index": 0},
+            {"name": "Sul", "heights": "10", "antenna_type": "Dipole", "prn_upload_index": 1},
+        ]
+        response = self.request(
+            "POST", "/api/compare",
+            data={"frequency": "20m", "scenario_configs": json.dumps(configs)},
+            files=[
+                ("profile", (profile.name, profile_bytes, "text/plain")),
+                ("scenario_prns", ("NORTE.PRN", prn_20m, "text/plain")),
+                ("scenario_prns", ("SUL.PRN", prn_10m, "text/plain")),
+            ],
+        )
+        self.assertEqual(response.status_code, 200, response.text)
+        payload = response.json()
+        self.assertEqual([scenario["prn_name"] for scenario in payload["scenarios"]], ["NORTE.PRN", "SUL.PRN"])
+        self.assertEqual([scenario["heights_input"] for scenario in payload["scenarios"]], ["10", "10"])
+        self.assertEqual([scenario["antenna_type"] for scenario in payload["scenarios"]], ["Dipole", "Dipole"])
+        self.assertTrue(all(scenario["profile_name"] for scenario in payload["scenarios"]))
+        self.assertEqual(payload["scenarios"][0]["aoa"]["probabilities_pct"], [10.0, 20.0, 30.0])
+        self.assertEqual(payload["scenarios"][1]["aoa"]["probabilities_pct"], [30.0, 20.0, 10.0])
+
+    def test_compare_scenarios_with_explicit_profile_indexes(self):
+        first = ROOT / "test/pro/PR1T-torre1-332.00.PRO"
+        second = ROOT / "test/pro/PR1T-torre1-333.00.PRO"
+        configs = [
+            {"name": "Perfil 1", "heights": "10", "antenna_type": "Dipole", "profile_upload_index": 0},
+            {"name": "Perfil 2", "heights": "10", "antenna_type": "Dipole", "profile_upload_index": 1},
+        ]
+        response = self.request(
+            "POST", "/api/compare",
+            data={"frequency": "20m", "scenario_configs": json.dumps(configs)},
+            files=[
+                ("profiles", ("NORTE.PRO", first.read_bytes(), "text/plain")),
+                ("profiles", ("SUL.PRO", second.read_bytes(), "text/plain")),
+            ],
+        )
+        self.assertEqual(response.status_code, 200, response.text)
+        self.assertEqual([scenario["profile_name"] for scenario in response.json()["scenarios"]], ["NORTE.PRO", "SUL.PRO"])
 
     def test_ai_status_without_key(self):
         with patch.dict(os.environ, {"OPENROUTER_API_KEY": ""}), patch.object(ai, "_DOTENV_VALUES", {**ai._DOTENV_VALUES, "OPENROUTER_API_KEY": ""}):

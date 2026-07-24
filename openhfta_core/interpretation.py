@@ -12,7 +12,9 @@ def interpret_ray_trace(ray_trace: dict | None, profile: dict | None = None) -> 
         "direct": "diretas",
         "reflected": "refletidas",
         "diffracted": "difratadas",
+        "reflected_diffracted": "com reflexão e difração",
         "double_diffracted": "com dupla difração",
+        "reflected_double_diffracted": "com reflexão e dupla difração",
     }
     total = len(paths)
     count_text = ", ".join(f"{int(counts.get(kind, 0))} {labels[kind]}" for kind in labels if counts.get(kind, 0)) or "nenhuma trajetória válida"
@@ -30,7 +32,7 @@ def interpret_ray_trace(ray_trace: dict | None, profile: dict | None = None) -> 
     if terrain_heights and terrain_distances:
         contacts = 0
         for path in paths:
-            if path.get("kind") not in ("reflected", "diffracted", "double_diffracted"):
+            if path.get("kind") not in ("reflected", "diffracted", "reflected_diffracted", "double_diffracted", "reflected_double_diffracted"):
                 continue
             for x, y in zip(path.get("distances_m", []), path.get("heights_m", [])):
                 nearest = min(range(len(terrain_distances)), key=lambda index: abs(terrain_distances[index] - x))
