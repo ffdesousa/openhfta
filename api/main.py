@@ -10,11 +10,13 @@ import os
 import re
 import smtplib
 import tempfile
+import urllib.parse
+import urllib.request
 from email.message import EmailMessage
 from typing import Annotated
 import numpy as np
 
-from fastapi import FastAPI, File, Form, HTTPException, UploadFile
+from fastapi import FastAPI, File, Form, HTTPException, Request, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, Response
 from fastapi.staticfiles import StaticFiles
@@ -103,6 +105,7 @@ def _env_bool(name: str, default: bool = False) -> bool:
 def _send_feedback_email(name: str, sender_email: str, category: str, message: str) -> None:
     host = os.getenv("FEEDBACK_SMTP_HOST", "").strip()
     recipient = os.getenv("FEEDBACK_TO_EMAIL", "").strip()
+    copies = [item.strip() for item in os.getenv("FEEDBACK_CC_EMAIL", "").split(",") if item.strip()]
     username = os.getenv("FEEDBACK_SMTP_USER", "").strip()
     password = os.getenv("FEEDBACK_SMTP_PASSWORD", "")
     if not host or not recipient:
@@ -120,6 +123,8 @@ def _send_feedback_email(name: str, sender_email: str, category: str, message: s
     email = EmailMessage()
     email["From"] = sender
     email["To"] = recipient
+    if copies:
+        email["Cc"] = ", ".join(copies)
     email["Reply-To"] = sender_email
     email["Subject"] = subject
     email.set_content(body)
@@ -128,7 +133,7 @@ def _send_feedback_email(name: str, sender_email: str, category: str, message: s
         with smtplib.SMTP_SSL(host, port, timeout=timeout) as client:
             if username:
                 client.login(username, password)
-            client.send_message(email)
+            client.send_message(email, to_addrs=[recipient, *copies])
         return
     with smtplib.SMTP(host, port, timeout=timeout) as client:
         client.ehlo()
@@ -137,17 +142,44 @@ def _send_feedback_email(name: str, sender_email: str, category: str, message: s
             client.ehlo()
         if username:
             client.login(username, password)
-        client.send_message(email)
+        client.send_message(email, to_addrs=[recipient, *copies])
+
+
+def _verify_turnstile(token: str | None, remote_ip: str | None) -> bool:
+    secret = os.getenv("TURNSTILE_SECRET", "").strip()
+    if not secret or not token:
+        return False
+    form = {"secret": secret, "response": token, "remoteip": remote_ip or ""}
+    request = urllib.request.Request(
+        "https://challenges.cloudflare.com/turnstile/v0/siteverify",
+        data=urllib.parse.urlencode(form).encode("utf-8"),
+        headers={"Content-Type": "application/x-www-form-urlencoded"},
+        method="POST",
+    )
+    try:
+        with urllib.request.urlopen(request, timeout=5) as response:
+            result = json.loads(response.read().decode("utf-8"))
+        return result.get("success") is True
+    except (OSError, ValueError, json.JSONDecodeError) as exc:
+        logger.warning("turnstile validation failed: %s", exc)
+        return False
 
 
 @app.post("/api/feedback")
 async def feedback_endpoint(
+    request: Request,
     message: Annotated[str, Form()],
     email: Annotated[str, Form()],
     name: Annotated[str, Form()] = "",
     category: Annotated[str, Form()] = "Sugestão",
+    turnstile_token: Annotated[str | None, Form(alias="cf-turnstile-response")] = None,
+    website: Annotated[str, Form()] = "",
 ) -> dict:
     """Send a user suggestion to the address configured by the operator."""
+    if not _verify_turnstile(turnstile_token, request.client.host if request.client else None):
+        raise HTTPException(422, "Confirme a verificação anti-robô e tente novamente.")
+    if website.strip():
+        return {"status": "sent", "message": "Obrigado pela colaboração! Sua mensagem foi enviada."}
     clean_name = " ".join(name.split())[:120]
     clean_email = email.strip()
     clean_category = " ".join(category.split())[:80] or "Sugestão"

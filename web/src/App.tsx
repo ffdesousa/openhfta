@@ -1,4 +1,4 @@
-import { CSSProperties, FormEvent, MouseEvent as ReactMouseEvent, useEffect, useState } from 'react'
+import { CSSProperties, FormEvent, MouseEvent as ReactMouseEvent, useEffect, useRef, useState } from 'react'
 import Plot from 'react-plotly.js'
 
 type Result = {
@@ -129,6 +129,7 @@ const API_URL = import.meta.env.VITE_API_URL || (
     ? `${window.location.protocol}//${window.location.hostname}:8000`
     : window.location.origin
 )
+const TURNSTILE_SITE_KEY = import.meta.env.VITE_TURNSTILE_SITE_KEY || ''
 const DEFAULT_PRN_OPTIONS = [
   'PT9-AF.PRN', 'PT9-AS.PRN', 'PT9-BR.PRN', 'PT9-BR-CO.PRN', 'PT9-BR-N.PRN', 'PT9-BR-NE.PRN', 'PT9-BR-S.PRN', 'PT9-BR-SE.PRN', 'PT9-EU.PRN', 'PT9-JA.PRN', 'PT9-OC.PRN', 'PT9-SA.PRN', 'PT9-US.PRN',
   'PY1-AF.PRN', 'PY1-AS.PRN', 'PY1-EU.PRN', 'PY1-JA.PRN', 'PY1-OC.PRN', 'PY1-SA.PRN', 'PY1-US.PRN',
@@ -175,6 +176,12 @@ function App() {
   const [feedbackStatus, setFeedbackStatus] = useState('')
   const [feedbackError, setFeedbackError] = useState('')
   const [feedbackLoading, setFeedbackLoading] = useState(false)
+  const [feedbackSent, setFeedbackSent] = useState(false)
+  const [feedbackFormHidden, setFeedbackFormHidden] = useState(false)
+  const [feedbackCountdown, setFeedbackCountdown] = useState(0)
+  const [feedbackCaptchaToken, setFeedbackCaptchaToken] = useState('')
+  const feedbackCaptchaRef = useRef<HTMLDivElement | null>(null)
+  const feedbackWidgetId = useRef<string | null>(null)
   const [colorblindMode, setColorblindMode] = useState(() => window.localStorage.getItem('openhfta-colorblind-mode') === 'true')
   const [accessiblePatterns, setAccessiblePatterns] = useState(() => window.localStorage.getItem('openhfta-accessible-patterns') === 'true')
   const [rayKinds, setRayKinds] = useState<Record<string, boolean>>(() => Object.fromEntries(RAY_KINDS.map(kind => [kind, true])))
@@ -217,6 +224,46 @@ function App() {
 
   useEffect(() => { window.localStorage.setItem('openhfta-colorblind-mode', String(colorblindMode)) }, [colorblindMode])
   useEffect(() => { window.localStorage.setItem('openhfta-accessible-patterns', String(accessiblePatterns)) }, [accessiblePatterns])
+
+  useEffect(() => {
+    if (!showFeedback || !TURNSTILE_SITE_KEY) return
+    const renderWidget = () => {
+      const turnstile = (window as Window & { turnstile?: { render: (element: HTMLElement, options: Record<string, unknown>) => string; reset: (id: string) => void } }).turnstile
+      if (!turnstile || !feedbackCaptchaRef.current || feedbackWidgetId.current) return
+      feedbackWidgetId.current = turnstile.render(feedbackCaptchaRef.current, {
+        sitekey: TURNSTILE_SITE_KEY,
+        action: 'turnstile-spin-v2',
+        theme: 'dark',
+        callback: (token: string) => setFeedbackCaptchaToken(token),
+        'expired-callback': () => setFeedbackCaptchaToken(''),
+        'error-callback': () => setFeedbackCaptchaToken(''),
+      })
+    }
+    if ((window as Window & { turnstile?: unknown }).turnstile) renderWidget()
+    else {
+      const script = document.querySelector('script[data-openhfta-turnstile]') || document.createElement('script')
+      script.setAttribute('src', 'https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit')
+      script.setAttribute('async', '')
+      script.setAttribute('defer', '')
+      script.setAttribute('data-openhfta-turnstile', 'true')
+      script.addEventListener('load', renderWidget, { once: true })
+      document.head.appendChild(script)
+    }
+    return () => {
+      feedbackWidgetId.current = null
+      setFeedbackCaptchaToken('')
+    }
+  }, [showFeedback])
+
+  useEffect(() => {
+    if (!feedbackSent || feedbackCountdown <= 0) return
+    const timer = window.setTimeout(() => setFeedbackCountdown(current => current - 1), 1000)
+    return () => window.clearTimeout(timer)
+  }, [feedbackSent, feedbackCountdown])
+
+  useEffect(() => {
+    if (feedbackSent && feedbackCountdown === 0) setFeedbackFormHidden(true)
+  }, [feedbackSent, feedbackCountdown])
 
   useEffect(() => {
     fetch(`${API_URL}/api/prns`).then(response => response.ok ? response.json() : { files: [] }).then(payload => setPrnOptions(payload.files?.length ? payload.files : DEFAULT_PRN_OPTIONS)).catch(() => setPrnOptions(DEFAULT_PRN_OPTIONS))
@@ -344,15 +391,33 @@ function App() {
     form.append('email', feedbackEmail)
     form.append('category', feedbackCategory)
     form.append('message', feedbackMessage)
+    form.append('cf-turnstile-response', feedbackCaptchaToken)
+    form.append('website', '')
     try {
       const response = await fetch(`${API_URL}/api/feedback`, { method: 'POST', body: form })
       const payload = await response.json().catch(() => ({}))
       if (!response.ok) throw new Error(payload.detail || 'Não foi possível enviar sua mensagem.')
       setFeedbackStatus(payload.message || 'Obrigado pela colaboração! Sua mensagem foi enviada.')
+      setFeedbackSent(true)
+      setFeedbackFormHidden(false)
+      setFeedbackCountdown(10)
       setFeedbackName(''); setFeedbackEmail(''); setFeedbackMessage('')
     } catch (cause) {
       setFeedbackError(cause instanceof Error ? cause.message : 'Não foi possível enviar sua mensagem.')
     } finally { setFeedbackLoading(false) }
+  }
+
+  function startNewFeedback() {
+    setFeedbackSent(false)
+    setFeedbackFormHidden(false)
+    setFeedbackCountdown(0)
+    setFeedbackStatus('')
+    setFeedbackError('')
+    setFeedbackCaptchaToken('')
+    if (feedbackWidgetId.current) {
+      const turnstile = (window as Window & { turnstile?: { reset: (id: string) => void } }).turnstile
+      turnstile?.reset(feedbackWidgetId.current)
+    }
   }
 
   async function exportResult(format: string) {
@@ -600,14 +665,18 @@ function App() {
       <section className="help-modal feedback-modal" role="dialog" aria-modal="true" aria-labelledby="feedback-title">
         <div className="help-modal-header"><div><p className="eyebrow">COLABORAÇÃO OPEN SOURCE</p><h2 id="feedback-title">Conte como podemos melhorar</h2></div><button type="button" className="modal-close" onClick={() => setShowFeedback(false)} aria-label="Fechar formulário de colaboração">×</button></div>
         <p className="help-intro">Sugestões, correções e ideias de novos recursos são muito bem-vindas. Se quiser uma resposta, informe seu e-mail; ele será usado apenas para retornarmos sobre esta mensagem.</p>
-        <form className="feedback-form" onSubmit={submitFeedback}>
+        <div className={`feedback-form-shell${feedbackFormHidden ? ' feedback-form-shell-hidden' : ''}`}>
+          {feedbackSent && <div className="feedback-success-overlay" role="status" aria-live="polite"><strong>{feedbackStatus || 'Obrigado pela colaboração!'}</strong>{feedbackFormHidden ? <button type="button" className="submit feedback-new-button" onClick={startNewFeedback}>Enviar outra sugestão <span>→</span></button> : <small>O formulário será liberado novamente em {feedbackCountdown}s.</small>}</div>}
+          {!feedbackFormHidden && <form className={`feedback-form${feedbackSent ? ' feedback-form-obscured' : ''}`} onSubmit={submitFeedback}>
+          <label className="feedback-honeypot" aria-hidden="true">Website<input tabIndex={-1} autoComplete="off" name="website" /></label>
           <div className="feedback-fields"><label>Nome (opcional)<input value={feedbackName} onChange={event => setFeedbackName(event.target.value)} maxLength={120} placeholder="Como podemos chamar você?" /></label><label>E-mail para retorno<input required type="email" value={feedbackEmail} onChange={event => setFeedbackEmail(event.target.value)} placeholder="voce@exemplo.com" /></label></div>
           <label>Assunto<select value={feedbackCategory} onChange={event => setFeedbackCategory(event.target.value)}><option>Sugestão</option><option>Correção de resultado</option><option>Problema na interface</option><option>Novo recurso</option><option>Outro</option></select></label>
           <label>Mensagem<textarea required value={feedbackMessage} onChange={event => setFeedbackMessage(event.target.value)} maxLength={4000} rows={7} placeholder="Descreva sua ideia, dificuldade ou sugestão…" /></label>
+          <div className="feedback-captcha"><div ref={feedbackCaptchaRef} className="cf-turnstile" data-sitekey={TURNSTILE_SITE_KEY} data-action="turnstile-spin-v2" /><small>Verificação de segurança para evitar mensagens automáticas.</small></div>
           {feedbackError && <div className="error" role="alert">{feedbackError}</div>}
-          {feedbackStatus && <div className="feedback-success" role="status" aria-live="polite">{feedbackStatus}</div>}
           <button className="submit" disabled={feedbackLoading}>{feedbackLoading ? 'Enviando…' : 'Enviar mensagem'} <span>→</span></button>
-        </form>
+          </form>}
+        </div>
       </section>
     </div>}
     <footer className="site-footer">
