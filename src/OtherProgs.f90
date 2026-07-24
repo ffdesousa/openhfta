@@ -28,6 +28,9 @@ subroutine TRACE_START(KindIn, AngleIn, XIn, YIn)
     common /TraceData/ TraceCount, TraceActive, TraceActiveIndex, TraceKind, TraceNPoints, TraceAngle, TraceX, TraceY
     TraceActive = 0
     if (TraceCount >= 4096) return
+    ! Two-edge diffraction can generate thousands of accepted visual paths.
+    ! Reserve room for the direct/reflected sweep that runs afterward.
+    if (KindIn == 8 .and. TraceCount >= 2400) return
     TraceCount = TraceCount + 1
     TraceActiveIndex = TraceCount
     TraceKind(TraceCount) = KindIn
@@ -37,6 +40,18 @@ subroutine TRACE_START(KindIn, AngleIn, XIn, YIn)
     TraceY(TraceCount,1) = YIn
     TraceActive = 1
 end subroutine TRACE_START
+
+subroutine TRACE_ADD_KIND(KindIn)
+    implicit none
+    integer*2 KindIn
+    integer*4 TraceCount, TraceActive, TraceActiveIndex
+    integer*2 TraceKind(1:4096), TraceNPoints(1:4096)
+    real*4 TraceAngle(1:4096), TraceX(1:4096,1:151), TraceY(1:4096,1:151)
+    common /TraceData/ TraceCount, TraceActive, TraceActiveIndex, TraceKind, TraceNPoints, TraceAngle, TraceX, TraceY
+    if (TraceActive == 1 .and. TraceActiveIndex > 0) then
+        TraceKind(TraceActiveIndex) = IOR(TraceKind(TraceActiveIndex), KindIn)
+    end if
+end subroutine TRACE_ADD_KIND
 
 subroutine TRACE_ADD(XIn, YIn)
     implicit none
@@ -80,6 +95,11 @@ subroutine TRACE_FINISH()
     integer*2 TraceKind(1:4096), TraceNPoints(1:4096)
     real*4 TraceAngle(1:4096), TraceX(1:4096,1:151), TraceY(1:4096,1:151)
     common /TraceData/ TraceCount, TraceActive, TraceActiveIndex, TraceKind, TraceNPoints, TraceAngle, TraceX, TraceY
+    if (TraceActive == 1) then
+        if (TraceActiveIndex > 0) then
+            if (TraceKind(TraceActiveIndex) == 0) TraceKind(TraceActiveIndex) = 1
+        end if
+    end if
     TraceActive = 0
     TraceActiveIndex = 0
 end subroutine TRACE_FINISH
@@ -114,11 +134,12 @@ end subroutine TRACE_FINISH
 !   E_diffAccum    - Complex elevation pattern array (accumulated diffraction contributions)
 !
 ! ================================================================================
-subroutine DIFFDIFF ( NPoints, NDiffPoints, NElements, DebugEnable, DebugMode, DebugExitAngle, AntPhase, E_diffAccum )  !3
+subroutine DIFFDIFF ( NPoints, NDiffPoints, NElements, DebugEnable, DebugMode, DebugExitAngle, AntPhase, HantFeetAbs, E_diffAccum )  !3
     implicit none
     integer*4 NPoints, NDiffPoints, NElements, DebugEnable, DebugMode
     real*4 DebugExitAngle
     integer*2 AntPhase(*)
+    real*4 HantFeetAbs(*)
     complex*8 E_diffAccum(0:181)
 
     real*4 FinalPhase2, AngleIdx_f2, OutputField2, UnusedTotSlant2, AngleOut2
@@ -263,6 +284,19 @@ subroutine DIFFDIFF ( NPoints, NDiffPoints, NElements, DebugEnable, DebugMode, D
                                           AngleOut2, UnusedTotSlant2, MadeItOut, MadeHit)
                                 OutputField2 = ReflAmpTrace * AmpAtE2  !151
                                 if (MadeItOut) then  !152
+                                    ! Keep a geometric record of the accepted two-edge path.
+                                    ! The second REFL call is intentionally used only for tracing:
+                                    ! the first call above remains the field calculation.
+                                    if (ElemIdx == 1) then
+                                        CALL TRACE_START(8_I2, AngleOut2 / DEG2RAD, DG(1), HG(1) + HantFeetAbs(ElemIdx))
+                                        CALL TRACE_ADD(DG(DiffPtIdx(EdgeIdx1)), HG(DiffPtIdx(EdgeIdx1)))
+                                        CALL TRACE_ADD(DG(DiffPtIdx(EdgeIdx2)), HG(DiffPtIdx(EdgeIdx2)))
+                                        CALL REFL(E2_i2, NPoints_i2, PHRF2, HG_at_E2, &
+                                                  PhaseAtE2, ReflAmpTrace, ReflPhase2, RayHeightOut2, &
+                                                  AngleOut2, UnusedTotSlant2, MadeItOut, MadeHit)
+                                        CALL TRACE_SET_ANGLE(AngleOut2 / DEG2RAD)
+                                        CALL TRACE_FINISH()
+                                    end if
                                     ! Accepted ray cleared the profile end; calculate elevation contribution
                                     ! Convert elevation angle to pattern array index
                                     ! Maps to 0.25° bins: idx = angle_deg × 4

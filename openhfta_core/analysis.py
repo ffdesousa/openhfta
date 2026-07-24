@@ -5,7 +5,7 @@ from .library import FortranInt16, FortranInt32, FortranReal, load_ytw_core
 from .models import AnalysisConfig, AnalysisResult
 from .profiles import load_profile
 
-MAX_PROFILE_POINTS = 148
+MAX_PROFILE_POINTS = 149
 MAX_TRACE_PATHS = 4096
 MAX_TRACE_POINTS = 151
 
@@ -55,7 +55,15 @@ def analyze(config: AnalysisConfig) -> AnalysisResult:
             trace_x.ctypes.data_as(ctypes.POINTER(FortranReal)),
             trace_y.ctypes.data_as(ctypes.POINTER(FortranReal)),
         )
-        kind_names = {1: "direct", 2: "reflected", 3: "diffracted", 4: "double_diffracted"}
+        kind_names = {
+            1: "direct",
+            2: "reflected",
+            4: "diffracted",
+            6: "reflected_diffracted",
+            8: "double_diffracted",
+            10: "reflected_double_diffracted",
+            12: "reflected_double_diffracted",
+        }
         for index in range(min(int(trace_count.value), MAX_TRACE_PATHS)):
             point_count = min(int(trace_points[index]), MAX_TRACE_POINTS)
             if point_count < 2:
