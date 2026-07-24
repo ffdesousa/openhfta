@@ -42,7 +42,7 @@ const UI_TEXT: Record<Locale, Record<string, string>> = {
     heroTitle: 'Veja o terreno', heroTitleEm: 'moldar o sinal.', heroLede: 'Envie um perfil de terreno e explore o padrão de elevação da sua antena em segundos.',
     helpImprove: 'Ajude a melhorar o OpenHFTA', feedbackBanner: 'Encontrou algo estranho ou tem uma sugestão? Sua experiência ajuda a tornar a ferramenta mais útil para toda a comunidade.', sendSuggestion: 'Enviar sugestão',
     configuration: 'Configuração', defineScenario: 'Defina o cenário de análise', explainFields: 'Explicar campos do formulário', uploadProfile: 'Solte seu perfil .PRO aqui', browseComputer: 'ou clique para procurar no computador',
-    frequency: 'Frequência', units: 'Unidade', meters: 'Metros', feet: 'Pés', antennaHeights: 'Alturas da antena', antennaType: 'Tipo de antena', polarization: 'Polarização', soilPermittivity: 'Permissividade do solo', soilConductivity: 'Condutividade (S/m)', towerOffset: 'Deslocamento da torre',
+    frequency: 'Frequência', units: 'Unidade', meters: 'Metros', feet: 'Pés', antennaHeights: 'Alturas da antena', antennaType: 'Tipo de antena', polarization: 'Polarização', terrainType: 'Tipo de terreno', soilPermittivity: 'Permissividade do solo', soilConductivity: 'Condutividade (S/m)', towerOffset: 'Deslocamento da torre',
     includeDiffraction: 'Incluir difração no cálculo', compareScenarios: 'Comparar cenários', calculate: 'Executar análise', calculating: 'Calculando...',
     result: 'Resultado', waitingAnalysis: 'Aguardando uma análise', patternCalculated: 'Padrão calculado pelo núcleo', comparisonCalculated: 'Comparação calculada pelo núcleo', processing: 'Processando análise…',
     terrainProfile: 'PERFIL DO TERRENO', rayTraceCore: 'TRAÇADO DE RAIOS DO NÚCLEO', export: 'EXPORTAR', emptyTitle: 'Seu padrão aparecerá aqui', emptyText: 'Preencha a configuração ao lado e execute a primeira análise.',
@@ -73,7 +73,7 @@ const UI_TEXT: Record<Locale, Record<string, string>> = {
     heroTitle: 'See how terrain', heroTitleEm: 'shapes the signal.', heroLede: 'Upload a terrain profile and explore your antenna elevation pattern in seconds.',
     helpImprove: 'Help improve OpenHFTA', feedbackBanner: 'Found something unusual or have a suggestion? Your experience helps make the tool more useful to the whole community.', sendSuggestion: 'Send suggestion',
     configuration: 'Configuration', defineScenario: 'Define the analysis scenario', explainFields: 'Explain the form fields', uploadProfile: 'Drop your .PRO profile here', browseComputer: 'or click to browse your computer',
-    frequency: 'Frequency', units: 'Units', meters: 'Meters', feet: 'Feet', antennaHeights: 'Antenna heights', antennaType: 'Antenna type', polarization: 'Polarization', soilPermittivity: 'Ground dielectric constant', soilConductivity: 'Ground conductivity (S/m)', towerOffset: 'Tower offset',
+    frequency: 'Frequency', units: 'Units', meters: 'Meters', feet: 'Feet', antennaHeights: 'Antenna heights', antennaType: 'Antenna type', polarization: 'Polarization', terrainType: 'Terrain type', soilPermittivity: 'Ground dielectric constant', soilConductivity: 'Ground conductivity (S/m)', towerOffset: 'Tower offset',
     includeDiffraction: 'Include diffraction in the calculation', compareScenarios: 'Compare scenarios', calculate: 'Run analysis', calculating: 'Calculating...',
     result: 'Result', waitingAnalysis: 'Waiting for an analysis', patternCalculated: 'Pattern calculated by the HFTA core', comparisonCalculated: 'Comparison calculated by the HFTA core', processing: 'Processing analysis…',
     terrainProfile: 'TERRAIN PROFILE', rayTraceCore: 'CORE RAY TRACE', export: 'EXPORT', emptyTitle: 'Your pattern will appear here', emptyText: 'Complete the configuration and run the first analysis.',
@@ -104,7 +104,7 @@ const UI_TEXT: Record<Locale, Record<string, string>> = {
     heroTitle: 'Vea cómo el terreno', heroTitleEm: 'moldea la señal.', heroLede: 'Cargue un perfil de terreno y explore el patrón de elevación de su antena en segundos.',
     helpImprove: 'Ayude a mejorar OpenHFTA', feedbackBanner: '¿Encontró algo extraño o tiene una sugerencia? Su experiencia ayuda a que la herramienta sea más útil para toda la comunidad.', sendSuggestion: 'Enviar sugerencia',
     configuration: 'Configuración', defineScenario: 'Defina el escenario de análisis', explainFields: 'Explicar los campos del formulario', uploadProfile: 'Suelte aquí su perfil .PRO', browseComputer: 'o haga clic para buscar en el equipo',
-    frequency: 'Frecuencia', units: 'Unidad', meters: 'Metros', feet: 'Pies', antennaHeights: 'Alturas de la antena', antennaType: 'Tipo de antena', polarization: 'Polarización', soilPermittivity: 'Constante dieléctrica del suelo', soilConductivity: 'Conductividad del suelo (S/m)', towerOffset: 'Desplazamiento de la torre',
+    frequency: 'Frecuencia', units: 'Unidad', meters: 'Metros', feet: 'Pies', antennaHeights: 'Alturas de la antena', antennaType: 'Tipo de antena', polarization: 'Polarización', terrainType: 'Tipo de terreno', soilPermittivity: 'Constante dieléctrica del suelo', soilConductivity: 'Conductividad del suelo (S/m)', towerOffset: 'Desplazamiento de la torre',
     includeDiffraction: 'Incluir difracción en el cálculo', compareScenarios: 'Comparar escenarios', calculate: 'Ejecutar análisis', calculating: 'Calculando...',
     result: 'Resultado', waitingAnalysis: 'Esperando un análisis', patternCalculated: 'Patrón calculado por el núcleo HFTA', comparisonCalculated: 'Comparación calculada por el núcleo HFTA', processing: 'Procesando análisis…',
     terrainProfile: 'PERFIL DEL TERRENO', rayTraceCore: 'TRAZADO DE RAYOS DEL NÚCLEO', export: 'EXPORTAR', emptyTitle: 'Su patrón aparecerá aquí', emptyText: 'Complete la configuración y ejecute el primer análisis.',
@@ -323,6 +323,36 @@ const API_URL = import.meta.env.VITE_API_URL || (
     : window.location.origin
 )
 const TURNSTILE_SITE_KEY = import.meta.env.VITE_TURNSTILE_SITE_KEY || ''
+type SoilPreset = { key: string; epsr: number; sigma: number }
+const SOIL_PRESETS: SoilPreset[] = [
+  { key: 'average', epsr: 13, sigma: 0.005 },
+  { key: 'sandy', epsr: 10, sigma: 0.002 },
+  { key: 'rocky', epsr: 12, sigma: 0.002 },
+  { key: 'mountainous', epsr: 5, sigma: 0.001 },
+  { key: 'clay', epsr: 13, sigma: 0.01 },
+  { key: 'pasture', epsr: 17, sigma: 0.008 },
+  { key: 'marshy', epsr: 12, sigma: 0.0075 },
+  { key: 'moist', epsr: 30, sigma: 0.015 },
+  { key: 'freshWater', epsr: 80, sigma: 0.005 },
+  { key: 'saltWater', epsr: 81, sigma: 5 },
+]
+const SOIL_PRESET_LABELS: Record<Locale, Record<string, string>> = {
+  'pt-BR': {
+    average: 'Média (padrão HFTA)', sandy: 'Arenoso (seco, costeiro)', rocky: 'Pedregoso / rochoso', mountainous: 'Montanhoso (seco)',
+    clay: 'Argiloso', pasture: 'Pasto / colinas férteis', marshy: 'Pantanoso / alagadiço', moist: 'Solo muito úmido',
+    freshWater: 'Água doce', saltWater: 'Água salgada', custom: 'Personalizado',
+  },
+  en: {
+    average: 'Average (HFTA default)', sandy: 'Sandy (dry, coastal)', rocky: 'Rocky', mountainous: 'Mountainous (dry)',
+    clay: 'Clay', pasture: 'Pastoral hills, rich soil', marshy: 'Marshy, wooded', moist: 'Highly moist ground',
+    freshWater: 'Fresh water', saltWater: 'Salt water', custom: 'Custom',
+  },
+  es: {
+    average: 'Media (predeterminado HFTA)', sandy: 'Arenoso (seco, costero)', rocky: 'Rocoso / pedregoso', mountainous: 'Montañoso (seco)',
+    clay: 'Arcilloso', pasture: 'Pastizal / colinas fértiles', marshy: 'Pantanoso / boscoso', moist: 'Suelo muy húmedo',
+    freshWater: 'Agua dulce', saltWater: 'Agua salada', custom: 'Personalizado',
+  },
+}
 const DEFAULT_PRN_OPTIONS = [
   'PT9-AF.PRN', 'PT9-AS.PRN', 'PT9-BR.PRN', 'PT9-BR-CO.PRN', 'PT9-BR-N.PRN', 'PT9-BR-NE.PRN', 'PT9-BR-S.PRN', 'PT9-BR-SE.PRN', 'PT9-EU.PRN', 'PT9-JA.PRN', 'PT9-OC.PRN', 'PT9-SA.PRN', 'PT9-US.PRN',
   'PY1-AF.PRN', 'PY1-AS.PRN', 'PY1-EU.PRN', 'PY1-JA.PRN', 'PY1-OC.PRN', 'PY1-SA.PRN', 'PY1-US.PRN',
@@ -348,6 +378,7 @@ function App() {
   const [polarization, setPolarization] = useState<'horizontal' | 'vertical'>('horizontal')
   const [soilEpsr, setSoilEpsr] = useState('13')
   const [soilSigma, setSoilSigma] = useState('0.005')
+  const [soilPreset, setSoilPreset] = useState('average')
   const [moveTower, setMoveTower] = useState('0')
   const [noDiffraction, setNoDiffraction] = useState(false)
   const [compareMode, setCompareMode] = useState(false)
@@ -839,8 +870,9 @@ function App() {
           <label className={compareMode ? 'field-disabled' : ''}>{t('antennaHeights')}<input disabled={compareMode} value={heights} onChange={e => setHeights(e.target.value)} placeholder="10 20*" /><small>{compareMode ? tr('Use as alturas dos cenários A–D abaixo.', 'Use the heights for scenarios A–D below.', 'Use las alturas de los escenarios A–D.') : tr('Separe elementos por espaço; * = 180°', 'Separate elements with spaces; * = 180°', 'Separe los elementos con espacios; * = 180°')}</small></label>
           <label className={compareMode ? 'field-disabled' : ''}>{t('antennaType')}<select disabled={compareMode} value={antennaType} onChange={e => setAntennaType(e.target.value)}>{['Dipole','2-Ele','3-Ele','4-Ele','5-Ele','6-Ele','8-Ele'].map(type => <option key={type}>{type}</option>)}</select></label>
           <label className={compareMode ? 'field-disabled' : ''}>{t('polarization')}<select disabled={compareMode} value={polarization} onChange={e => setPolarization(e.target.value as 'horizontal' | 'vertical')}><option value="horizontal">Horizontal (H)</option><option value="vertical">Vertical (V)</option></select><small>{compareMode ? tr('Use a polarização de cada cenário abaixo.', 'Use the polarization for each scenario below.', 'Use la polarización de cada escenario.') : tr('H usa TE; V usa TM na reflexão do solo.', 'H uses TE; V uses TM for ground reflection.', 'H usa TE; V usa TM en la reflexión del suelo.')}</small></label>
-          <label>{t('soilPermittivity')}<input type="number" step="any" value={soilEpsr} onChange={e => setSoilEpsr(e.target.value)} /></label>
-          <label>{t('soilConductivity')}<input type="number" step="any" value={soilSigma} onChange={e => setSoilSigma(e.target.value)} /></label>
+          <label>{t('terrainType')}<select value={soilPreset} onChange={event => { const key = event.target.value; setSoilPreset(key); const preset = SOIL_PRESETS.find(candidate => candidate.key === key); if (preset) { setSoilEpsr(String(preset.epsr)); setSoilSigma(String(preset.sigma)) } }}>{SOIL_PRESETS.map(preset => <option key={preset.key} value={preset.key}>{SOIL_PRESET_LABELS[locale][preset.key]}</option>)}<option value="custom">{SOIL_PRESET_LABELS[locale].custom}</option></select></label>
+          <label>{t('soilPermittivity')}<input type="number" step="any" value={soilEpsr} onChange={e => { setSoilEpsr(e.target.value); setSoilPreset('custom') }} /></label>
+          <label>{t('soilConductivity')}<input type="number" step="any" value={soilSigma} onChange={e => { setSoilSigma(e.target.value); setSoilPreset('custom') }} /></label>
           <label>{t('towerOffset')}<input type="number" step="any" value={moveTower} onChange={e => setMoveTower(e.target.value)} /></label>
         </div>
         <label className="toggle"><input type="checkbox" checked={!noDiffraction} onChange={e => setNoDiffraction(!e.target.checked)} /><span />{t('includeDiffraction')}</label>
