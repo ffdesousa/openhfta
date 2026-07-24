@@ -152,6 +152,15 @@ def _plot_rays(axis, payload: dict) -> None:
     if points:
         axis.set_xlim(0, max(0.5, distances[points - 1] / 1000))
         axis.set_ylim(max(0, min(heights[:points]) - 30), 1000)
+    degrees_axis = axis.twinx()
+    degrees_axis.set_ylim(0, 10)
+    degrees_axis.set_yticks(range(0, 11, 1))
+    degrees_axis.set_ylabel("Elevação (°)", color=WEB["muted"], fontsize=10, labelpad=10)
+    degrees_axis.tick_params(axis="y", colors=WEB["muted"], labelsize=9, direction="out", pad=4)
+    degrees_axis.spines["right"].set_color(WEB["grid"])
+    degrees_axis.spines["top"].set_visible(False)
+    degrees_axis.spines["left"].set_visible(False)
+    degrees_axis.spines["bottom"].set_visible(False)
     if shown or points:
         axis.legend(loc="upper center", bbox_to_anchor=(.5, -0.16), ncol=3, facecolor=WEB["panel"], edgecolor=WEB["grid"], labelcolor=WEB["text"], fontsize=8)
 
@@ -174,15 +183,15 @@ def _add_metrics(figure, payload: dict) -> None:
 
 def result_figure(payload: dict, image_format: str) -> bytes:
     """Render the same information hierarchy shown by the web result panel."""
-    figure = plt.figure(figsize=(12, 17), facecolor=WEB["background"])
+    figure = plt.figure(figsize=(26, 32), facecolor=WEB["background"])
     figure.text(.08, .968, "OpenHFTA", color=WEB["text"], fontsize=24, fontweight="bold")
     figure.text(.08, .946, "HF TERRAIN ANALYSIS  ·  RELATÓRIO DE ANÁLISE", color=WEB["orange"], fontsize=10, fontweight="bold")
     figure.text(.08, .924, _configuration_text(payload), color=WEB["muted"], fontsize=10)
     figure.text(.08, .907, _sources_text(payload), color=WEB["muted"], fontsize=9)
     _add_metrics(figure, payload)
-    pattern_axis = figure.add_axes([.08, .63, .84, .20])
-    terrain_axis = figure.add_axes([.08, .39, .84, .17])
-    ray_axis = figure.add_axes([.08, .13, .84, .19])
+    pattern_axis = figure.add_axes([.08, .70, .84, .18])
+    terrain_axis = figure.add_axes([.08, .44, .84, .18])
+    ray_axis = figure.add_axes([.08, .10, .84, .28])
     _plot_pattern(pattern_axis, payload)
     _plot_terrain(terrain_axis, payload)
     _plot_rays(ray_axis, payload)
