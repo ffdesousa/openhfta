@@ -49,6 +49,7 @@ const UI_TEXT: Record<Locale, Record<string, string>> = {
     elevation: 'Elevação (°)', elevationStats: 'Estatística de elevação (%)', height: 'Altura (m)', distance: 'Distância (m)', gain: 'Ganho (dB)',
     noDiffraction: 'Difração desativada', diffraction: 'Difração incluída', automaticReading: 'LEITURA AUTOMÁTICA', modelLimits: 'LIMITES DO MODELO',
     explainResult: '✦ Explicar resultado com IA', interpreting: 'Interpretando...', quickGuide: 'GUIA RÁPIDO', close: 'Fechar', helpTitle: 'O que significa cada campo?', helpIntro: 'Esses parâmetros descrevem uma análise de padrão de elevação de uma antena HF sobre um perfil de terreno. O núcleo calcula em pés internamente, mas você pode informar e interpretar os valores em metros.', helpTip: 'Dica para começar', rayHelpTitle: 'Como ler as trajetórias?', rayHelpIntro: 'O gráfico mostra caminhos geométricos calculados sobre o perfil. A linha representa o percurso; ela não é, sozinha, uma medição de potência recebida.', rayTip: 'Interações no gráfico',
+    explainTerrainTypes: 'Explicar tipos de terreno', soilHelpTitle: 'O que significa cada tipo de terreno?', soilHelpIntro: 'Cada tipo de terreno preenche a permissividade do solo e a condutividade (S/m) com valores de referência da tabela clássica de tipos de terreno usada em modelagem de antenas (mesma linhagem citada pelo ARRL Antenna Book). Selecione o mais próximo do seu local ou ajuste os campos manualmente.', soilHelpTip: 'Como escolher',
     feedbackTitle: 'Conte como podemos melhorar', feedbackIntro: 'Sugestões, correções e ideias de novos recursos são muito bem-vindas. Se quiser uma resposta, informe seu e-mail; ele será usado apenas para retornarmos sobre esta mensagem.',
     optionalName: 'Nome (opcional)', replyEmail: 'E-mail para retorno', subject: 'Assunto', message: 'Mensagem', sendMessage: 'Enviar mensagem', sending: 'Enviando…', securityCheck: 'Verificação de segurança para evitar mensagens automáticas.', newSuggestion: 'Enviar outra sugestão',
     footer: 'preservando a inteligência do HFTA para sistemas modernos',
@@ -80,6 +81,7 @@ const UI_TEXT: Record<Locale, Record<string, string>> = {
     elevation: 'Elevation (°)', elevationStats: 'Elevation statistics (%)', height: 'Height (m)', distance: 'Distance (m)', gain: 'Gain (dB)',
     noDiffraction: 'Diffraction disabled', diffraction: 'Diffraction included', automaticReading: 'AUTOMATIC READING', modelLimits: 'MODEL LIMITS',
     explainResult: '✦ Explain result with AI', interpreting: 'Interpreting...', quickGuide: 'QUICK GUIDE', close: 'Close', helpTitle: 'What does each field mean?', helpIntro: 'These parameters describe an HF antenna elevation-pattern analysis over a terrain profile. The core calculates internally in feet, but you can enter and interpret values in meters.', helpTip: 'Getting started', rayHelpTitle: 'How should the paths be read?', rayHelpIntro: 'The chart shows geometric paths calculated over the profile. The line represents the path; by itself, it is not a measurement of received power.', rayTip: 'Chart interactions',
+    explainTerrainTypes: 'Explain terrain types', soilHelpTitle: 'What does each terrain type mean?', soilHelpIntro: "Each terrain type fills the ground dielectric constant and conductivity (S/m) with reference values from the classic ground-type table used in antenna modeling (the same lineage cited by the ARRL Antenna Book). Pick the closest match for your location or adjust the fields manually.", soilHelpTip: 'How to choose',
     feedbackTitle: 'Tell us how we can improve', feedbackIntro: 'Suggestions, corrections, and ideas for new features are welcome. If you want a reply, provide your email; it will only be used to respond to this message.',
     optionalName: 'Name (optional)', replyEmail: 'Reply email address', subject: 'Subject', message: 'Message', sendMessage: 'Send message', sending: 'Sending…', securityCheck: 'Security check to prevent automated messages.', newSuggestion: 'Send another suggestion',
     footer: 'preserving HFTA intelligence for modern systems',
@@ -111,6 +113,7 @@ const UI_TEXT: Record<Locale, Record<string, string>> = {
     elevation: 'Elevación (°)', elevationStats: 'Estadística de elevación (%)', height: 'Altura (m)', distance: 'Distancia (m)', gain: 'Ganancia (dB)',
     noDiffraction: 'Difracción desactivada', diffraction: 'Difracción incluida', automaticReading: 'LECTURA AUTOMÁTICA', modelLimits: 'LÍMITES DEL MODELO',
     explainResult: '✦ Explicar resultado con IA', interpreting: 'Interpretando...', quickGuide: 'GUÍA RÁPIDA', close: 'Cerrar', helpTitle: '¿Qué significa cada campo?', helpIntro: 'Estos parámetros describen un análisis del patrón de elevación de una antena HF sobre un perfil del terreno. El núcleo calcula internamente en pies, pero puede introducir e interpretar los valores en metros.', helpTip: 'Para comenzar', rayHelpTitle: '¿Cómo se leen las trayectorias?', rayHelpIntro: 'El gráfico muestra trayectorias geométricas calculadas sobre el perfil. La línea representa el recorrido; por sí sola no es una medición de potencia recibida.', rayTip: 'Interacciones del gráfico',
+    explainTerrainTypes: 'Explicar tipos de terreno', soilHelpTitle: '¿Qué significa cada tipo de terreno?', soilHelpIntro: 'Cada tipo de terreno completa la constante dieléctrica del suelo y la conductividad (S/m) con valores de referencia de la tabla clásica de tipos de terreno usada en modelado de antenas (la misma línea citada por el ARRL Antenna Book). Elija el más parecido a su ubicación o ajuste los campos manualmente.', soilHelpTip: 'Cómo elegir',
     feedbackTitle: 'Cuéntenos cómo podemos mejorar', feedbackIntro: 'Las sugerencias, correcciones e ideas para nuevas funciones son bienvenidas. Si desea una respuesta, indique su correo; se usará únicamente para responder a este mensaje.',
     optionalName: 'Nombre (opcional)', replyEmail: 'Correo electrónico de respuesta', subject: 'Asunto', message: 'Mensaje', sendMessage: 'Enviar mensaje', sending: 'Enviando…', securityCheck: 'Verificación de seguridad para evitar mensajes automáticos.', newSuggestion: 'Enviar otra sugerencia',
     footer: 'preservando la inteligencia de HFTA para sistemas modernos',
@@ -389,6 +392,53 @@ const SOIL_PRESET_LABELS: Record<Locale, Record<string, string>> = {
     seaIce: 'Hielo marino', polarIce: 'Hielo polar', polarIceCap: 'Casquete polar', arcticLand: 'Terreno ártico', custom: 'Personalizado',
   },
 }
+const SOIL_PRESET_DESCRIPTIONS: Record<Locale, Record<string, string>> = {
+  'pt-BR': {
+    poor: 'Solo seco e pouco condutor, ex.: rocha nua ou areia muito seca.', moderate: 'Solo seco de condutividade baixa a moderada, entre pobre e médio.',
+    average: 'Valor padrão do HFTA, típico de solo comum a levemente melhor que a média.', good: 'Solo bem condutivo, geralmente mais úmido ou rico em minerais.',
+    sandyCoastal: 'Solo arenoso e seco, típico de faixa litorânea plana.', pastoralHills: 'Colinas de pasto com solo rico, retém boa umidade.',
+    pastoralForest: 'Colinas médias de pasto com cobertura florestal.', fertile: 'Terra agrícola fértil, moderadamente condutiva.',
+    richAgricultural: 'Terra agrícola rica em colinas baixas, boa condutividade.', rockySteep: 'Terreno rochoso e íngreme, condutividade baixa a moderada.',
+    marshyWooded: 'Área pantanosa e densamente arborizada, alta umidade.', marshyFlat: 'Área pantanosa plana e arborizada.',
+    mountainous: 'Terreno montanhoso ou de colinas até ~1000 m de altitude.', moistGround: 'Solo muito úmido, condutividade e permissividade elevadas.',
+    cityAvg: 'Área urbana/industrial com atenuação média do RF por construções.', cityMax: 'Área urbana/industrial densa, atenuação máxima do sinal.',
+    cityIndustrial: 'Área urbana/industrial genérica, baixa condutividade de solo.', freshWater: 'Corpo de água doce (lago, rio), alta permissividade.',
+    freshWater10: 'Água doce a 10°C, medida em 100 MHz.', freshWater20: 'Água doce a 20°C, medida em 100 MHz.',
+    seaWater: 'Água do mar, condutividade muito alta.', seaWater10: 'Água do mar a 10°C, até 1 GHz.', seaWater20: 'Água do mar a 20°C, até 1 GHz.',
+    seaIce: 'Gelo marinho, baixa condutividade.', polarIce: 'Gelo polar, condutividade muito baixa.', polarIceCap: 'Calota de gelo polar, quase isolante.',
+    arcticLand: 'Terreno ártico congelado, baixa condutividade.',
+  },
+  en: {
+    poor: 'Dry, poorly conductive ground, e.g. bare rock or very dry sand.', moderate: 'Dry ground with low-to-moderate conductivity, between poor and average.',
+    average: "HFTA's default value, typical of common to slightly better-than-average ground.", good: 'Well-conductive ground, usually moister or mineral-rich.',
+    sandyCoastal: 'Dry, sandy ground typical of flat coastal areas.', pastoralHills: 'Pastoral hills with rich soil, holds moisture well.',
+    pastoralForest: 'Medium pastoral hills with forest cover.', fertile: 'Fertile farmland, moderately conductive.',
+    richAgricultural: 'Rich farmland on low hills, good conductivity.', rockySteep: 'Rocky, steep terrain with low-to-moderate conductivity.',
+    marshyWooded: 'Densely wooded marshland, high moisture.', marshyFlat: 'Flat, wooded marshland.',
+    mountainous: 'Mountainous or hilly terrain up to about 1000 m.', moistGround: 'Highly moist ground, high conductivity and permittivity.',
+    cityAvg: 'Urban/industrial area with average RF attenuation from buildings.', cityMax: 'Dense urban/industrial area with maximal signal attenuation.',
+    cityIndustrial: 'Generic urban/industrial area, low ground conductivity.', freshWater: 'Fresh-water body (lake, river), high permittivity.',
+    freshWater10: 'Fresh water at 10°C, measured at 100 MHz.', freshWater20: 'Fresh water at 20°C, measured at 100 MHz.',
+    seaWater: 'Sea water, very high conductivity.', seaWater10: 'Sea water at 10°C, up to 1 GHz.', seaWater20: 'Sea water at 20°C, up to 1 GHz.',
+    seaIce: 'Sea ice, low conductivity.', polarIce: 'Polar ice, very low conductivity.', polarIceCap: 'Polar ice cap, nearly insulating.',
+    arcticLand: 'Frozen arctic terrain, low conductivity.',
+  },
+  es: {
+    poor: 'Suelo seco y poco conductor, p. ej. roca desnuda o arena muy seca.', moderate: 'Suelo seco de conductividad baja a moderada, entre pobre y medio.',
+    average: 'Valor predeterminado del HFTA, típico de suelo común a algo mejor que el promedio.', good: 'Suelo bien conductor, generalmente más húmedo o rico en minerales.',
+    sandyCoastal: 'Suelo arenoso y seco, típico de franjas costeras planas.', pastoralHills: 'Colinas de pastizal con suelo rico, retiene bien la humedad.',
+    pastoralForest: 'Colinas medias de pastizal con cobertura forestal.', fertile: 'Tierra agrícola fértil, moderadamente conductora.',
+    richAgricultural: 'Tierra agrícola rica en colinas bajas, buena conductividad.', rockySteep: 'Terreno rocoso y empinado, conductividad baja a moderada.',
+    marshyWooded: 'Zona pantanosa densamente boscosa, alta humedad.', marshyFlat: 'Zona pantanosa plana y boscosa.',
+    mountainous: 'Terreno montañoso o de colinas hasta unos 1000 m.', moistGround: 'Suelo muy húmedo, conductividad y permitividad elevadas.',
+    cityAvg: 'Área urbana/industrial con atenuación media de RF por edificaciones.', cityMax: 'Área urbana/industrial densa, atenuación máxima de la señal.',
+    cityIndustrial: 'Área urbana/industrial genérica, baja conductividad del suelo.', freshWater: 'Cuerpo de agua dulce (lago, río), alta permitividad.',
+    freshWater10: 'Agua dulce a 10°C, medida a 100 MHz.', freshWater20: 'Agua dulce a 20°C, medida a 100 MHz.',
+    seaWater: 'Agua de mar, conductividad muy alta.', seaWater10: 'Agua de mar a 10°C, hasta 1 GHz.', seaWater20: 'Agua de mar a 20°C, hasta 1 GHz.',
+    seaIce: 'Hielo marino, baja conductividad.', polarIce: 'Hielo polar, conductividad muy baja.', polarIceCap: 'Casquete de hielo polar, casi aislante.',
+    arcticLand: 'Terreno ártico congelado, baja conductividad.',
+  },
+}
 const DEFAULT_PRN_OPTIONS = [
   'PT9-AF.PRN', 'PT9-AS.PRN', 'PT9-BR.PRN', 'PT9-BR-CO.PRN', 'PT9-BR-N.PRN', 'PT9-BR-NE.PRN', 'PT9-BR-S.PRN', 'PT9-BR-SE.PRN', 'PT9-EU.PRN', 'PT9-JA.PRN', 'PT9-OC.PRN', 'PT9-SA.PRN', 'PT9-US.PRN',
   'PY1-AF.PRN', 'PY1-AS.PRN', 'PY1-EU.PRN', 'PY1-JA.PRN', 'PY1-OC.PRN', 'PY1-SA.PRN', 'PY1-US.PRN',
@@ -403,6 +453,10 @@ function App() {
   const rayUi = RAY_UI_BY_LOCALE[locale]
   const localizedHelpItems = helpItemsByLocale[locale]
   const localizedRayHelpItems = rayHelpItemsByLocale[locale]
+  const localizedSoilHelpItems: [string, string][] = SOIL_PRESETS.map(preset => [
+    SOIL_PRESET_LABELS[locale][preset.key],
+    `${SOIL_PRESET_DESCRIPTIONS[locale][preset.key]} ${tr('Condutividade', 'Conductivity', 'Conductividad')}: ${preset.sigma} S/m · ${tr('Permissividade', 'Permittivity', 'Permitividad')}: ${preset.epsr}`,
+  ])
   const [files, setFiles] = useState<File[]>([])
   const [aoaFile, setAoaFile] = useState<File | null>(null)
   const [prnOptions, setPrnOptions] = useState<string[]>([])
@@ -435,6 +489,7 @@ function App() {
   const [aiError, setAiError] = useState('')
   const [showHelp, setShowHelp] = useState(false)
   const [showRayHelp, setShowRayHelp] = useState(false)
+  const [showSoilHelp, setShowSoilHelp] = useState(false)
   const [showFeedback, setShowFeedback] = useState(false)
   const [feedbackName, setFeedbackName] = useState('')
   const [feedbackEmail, setFeedbackEmail] = useState('')
@@ -484,7 +539,7 @@ function App() {
   }
 
   useEffect(() => {
-    function closeOnEscape(event: KeyboardEvent) { if (event.key === 'Escape') { setShowHelp(false); setShowRayHelp(false); setShowFeedback(false) } }
+    function closeOnEscape(event: KeyboardEvent) { if (event.key === 'Escape') { setShowHelp(false); setShowRayHelp(false); setShowSoilHelp(false); setShowFeedback(false) } }
     window.addEventListener('keydown', closeOnEscape)
     return () => window.removeEventListener('keydown', closeOnEscape)
   }, [])
@@ -906,7 +961,7 @@ function App() {
           <label className={compareMode ? 'field-disabled' : ''}>{t('antennaHeights')}<input disabled={compareMode} value={heights} onChange={e => setHeights(e.target.value)} placeholder="10 20*" /><small>{compareMode ? tr('Use as alturas dos cenários A–D abaixo.', 'Use the heights for scenarios A–D below.', 'Use las alturas de los escenarios A–D.') : tr('Separe elementos por espaço; * = 180°', 'Separate elements with spaces; * = 180°', 'Separe los elementos con espacios; * = 180°')}</small></label>
           <label className={compareMode ? 'field-disabled' : ''}>{t('antennaType')}<select disabled={compareMode} value={antennaType} onChange={e => setAntennaType(e.target.value)}>{['Dipole','2-Ele','3-Ele','4-Ele','5-Ele','6-Ele','8-Ele'].map(type => <option key={type}>{type}</option>)}</select></label>
           <label className={compareMode ? 'field-disabled' : ''}>{t('polarization')}<select disabled={compareMode} value={polarization} onChange={e => setPolarization(e.target.value as 'horizontal' | 'vertical')}><option value="horizontal">Horizontal (H)</option><option value="vertical">Vertical (V)</option></select><small>{compareMode ? tr('Use a polarização de cada cenário abaixo.', 'Use the polarization for each scenario below.', 'Use la polarización de cada escenario.') : tr('H usa TE; V usa TM na reflexão do solo.', 'H uses TE; V uses TM for ground reflection.', 'H usa TE; V usa TM en la reflexión del suelo.')}</small></label>
-          <label>{t('terrainType')}<select value={soilPreset} onChange={event => { const key = event.target.value; setSoilPreset(key); const preset = SOIL_PRESETS.find(candidate => candidate.key === key); if (preset) { setSoilEpsr(String(preset.epsr)); setSoilSigma(String(preset.sigma)) } }}>{SOIL_PRESETS.map(preset => <option key={preset.key} value={preset.key}>{SOIL_PRESET_LABELS[locale][preset.key]}</option>)}<option value="custom">{SOIL_PRESET_LABELS[locale].custom}</option></select></label>
+          <label><span className="field-label-with-help">{t('terrainType')}<button type="button" className="ray-help-button" onClick={() => setShowSoilHelp(true)} aria-label={t('explainTerrainTypes')}>?</button></span><select value={soilPreset} onChange={event => { const key = event.target.value; setSoilPreset(key); const preset = SOIL_PRESETS.find(candidate => candidate.key === key); if (preset) { setSoilEpsr(String(preset.epsr)); setSoilSigma(String(preset.sigma)) } }}>{SOIL_PRESETS.map(preset => <option key={preset.key} value={preset.key}>{SOIL_PRESET_LABELS[locale][preset.key]}</option>)}<option value="custom">{SOIL_PRESET_LABELS[locale].custom}</option></select></label>
           <label>{t('soilPermittivity')}<input type="number" step="any" value={soilEpsr} onChange={e => { setSoilEpsr(e.target.value); setSoilPreset('custom') }} /></label>
           <label>{t('soilConductivity')}<input type="number" step="any" value={soilSigma} onChange={e => { setSoilSigma(e.target.value); setSoilPreset('custom') }} /></label>
           <label>{t('towerOffset')}<input type="number" step="any" value={moveTower} onChange={e => setMoveTower(e.target.value)} /></label>
@@ -959,6 +1014,14 @@ function App() {
         <p className="help-intro">{t('rayHelpIntro')}</p>
         <div className="help-list">{localizedRayHelpItems.map(([title, description]) => <article key={title}><h3>{title}</h3><p>{description}</p></article>)}</div>
         <div className="help-tip"><strong>{t('rayTip')}</strong><p>{locale === 'en' ? 'Use the colored buttons to hide or show categories. The legend and hover text identify the type, departure angle, estimated gain, and distance.' : locale === 'es' ? 'Use los botones de colores para ocultar o mostrar categorías. La leyenda y el texto al pasar el cursor identifican el tipo, el ángulo de salida, la ganancia estimada y la distancia.' : 'Use os botões coloridos para ocultar ou exibir categorias. A legenda e o texto ao passar o mouse identificam o tipo, o ângulo de saída, o ganho estimado e a distância.'}</p></div>
+      </section>
+    </div>}
+    {showSoilHelp && <div className="modal-backdrop" role="presentation" onMouseDown={event => { if (event.target === event.currentTarget) setShowSoilHelp(false) }}>
+      <section className="help-modal" role="dialog" aria-modal="true" aria-labelledby="soil-help-title">
+        <div className="help-modal-header"><div><p className="eyebrow">{t('terrainType')}</p><h2 id="soil-help-title">{t('soilHelpTitle')}</h2></div><button type="button" className="modal-close" onClick={() => setShowSoilHelp(false)} aria-label={t('close')}>×</button></div>
+        <p className="help-intro">{t('soilHelpIntro')}</p>
+        <div className="help-list">{localizedSoilHelpItems.map(([title, description]) => <article key={title}><h3>{title}</h3><p>{description}</p></article>)}</div>
+        <div className="help-tip"><strong>{t('soilHelpTip')}</strong><p>{tr('Se não souber o tipo exato, use "Média (padrão HFTA)" — é o valor de referência do próprio HFTA e funciona bem para a maioria dos terrenos. Para antenas horizontais (Yagi, dipolo), mudar o tipo de terreno altera o padrão só em ângulos de elevação bem altos.', 'If you are not sure of the exact type, use "Average (HFTA default)" — it is HFTA\'s own reference value and works well for most terrain. For horizontally polarized antennas (Yagi, dipole), changing the terrain type only shifts the pattern at very high elevation angles.', 'Si no sabe el tipo exacto, use "Media (predeterminado HFTA)" — es el valor de referencia del propio HFTA y funciona bien para la mayoría de los terrenos. Para antenas de polarización horizontal (Yagi, dipolo), cambiar el tipo de terreno solo afecta el patrón en ángulos de elevación muy altos.')}</p></div>
       </section>
     </div>}
     {showFeedback && <div className="modal-backdrop" role="presentation" onMouseDown={event => { if (event.target === event.currentTarget) setShowFeedback(false) }}>
