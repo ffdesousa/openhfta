@@ -65,7 +65,13 @@ def integrated_average_gain(angles_deg: np.ndarray, pattern_db: np.ndarray) -> d
 def summarize_pattern(angles_deg: np.ndarray, pattern_db: np.ndarray, max_extrema: int = 5) -> dict:
     angles, pattern = _validate_pattern(angles_deg, pattern_db)
     peak_index = int(np.argmax(pattern))
-    null_index = int(np.argmin(pattern))
+    # The core forces indices 0 and 1 (0.25 deg and 0.50 deg) to a fixed
+    # -30 dB display floor near the horizon (see YTWCore1.f90); it is not a
+    # computed pattern value, so it must not be reported or counted as a
+    # genuine local minimum ("null") of the antenna pattern.
+    floor_skip = 2 if len(pattern) > 2 else 0
+    null_angles, null_pattern = angles[floor_skip:], pattern[floor_skip:]
+    null_index = floor_skip + int(np.argmin(null_pattern))
     bands = {}
     for name, low, high in (("0-5", 0, 5), ("5-10", 5, 10), ("10-20", 10, 20), ("20-35", 20, 35)):
         values = pattern[(angles >= low) & (angles <= high)]
@@ -75,7 +81,7 @@ def summarize_pattern(angles_deg: np.ndarray, pattern_db: np.ndarray, max_extrem
         "peak": {"angle_deg": float(angles[peak_index]), "value_db": float(pattern[peak_index])},
         "lowest_null": {"angle_deg": float(angles[null_index]), "value_db": float(pattern[null_index])},
         "peaks": _local_extrema(angles, pattern, "peaks")[:max_extrema],
-        "nulls": _local_extrema(angles, pattern, "nulls")[:max_extrema],
+        "nulls": _local_extrema(null_angles, null_pattern, "nulls")[:max_extrema],
         "beamwidth_3db": beamwidth_3db(angles, pattern),
         "integrated_average_gain": integrated_average_gain(angles, pattern),
         "angular_bands": bands,
