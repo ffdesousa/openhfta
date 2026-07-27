@@ -865,8 +865,9 @@ function App() {
   }))
   const rayOriginHeight = terrainHeights[0] !== undefined ? terrainHeights[0] + (traceSource?.configuration?.antenna_heights_m?.[0] || 0) : 0
   const rayReferenceDistance = Math.max(1, rayAxisEnd)
+  const rayDegreeMax = rayAngleLimit === null ? Math.max(20, ...selectedRayPaths.map(path => Math.abs(path.angle_deg))) : 20
   const rayYMin = Math.max(0, Math.min(terrainAbsMin - 30, rayOriginHeight))
-  const rayYMax = Math.max(1000, rayOriginHeight + Math.tan(25 * Math.PI / 180) * rayReferenceDistance, ...visibleRays.flatMap(({ points }) => points.map(point => point[1])))
+  const rayYMax = Math.max(1000, rayOriginHeight + Math.tan(rayDegreeMax * Math.PI / 180) * rayReferenceDistance, ...visibleRays.flatMap(({ points }) => points.map(point => point[1])))
   const rayDegreeRange: [number, number] = [Math.atan2(rayYMin - rayOriginHeight, rayReferenceDistance) * 180 / Math.PI, Math.atan2(rayYMax - rayOriginHeight, rayReferenceDistance) * 180 / Math.PI]
   const rayAntennaPattern = result?.flat_pattern_db || result?.pattern_db || []
   const rayGains = visibleRays.map(({ path }) => gainAt(result?.angles_deg || [], rayAntennaPattern, path.angle_deg))
