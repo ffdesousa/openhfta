@@ -250,26 +250,16 @@ def _serialize_result(result, locale: str = "pt-BR") -> dict:
             "distances_m": [value / 3.28084 for value in distances_path_ft],
             "heights_m": [value / 3.28084 for value in heights_path_ft],
         })
-    # The core may produce hundreds of geometrical paths. Keep the complete
-    # counts for interpretation, but send a bounded representative sample to
-    # the browser so a normal analysis does not return several megabytes.
-    client_trace_paths = []
-    for kind in trace_counts:
-        paths = [path for path in trace_paths if path["kind"] == kind]
-        if len(paths) > 1000:
-            stride = max(1, len(paths) // 1000)
-            paths = paths[::stride][:1000]
-        client_trace_paths.extend(paths)
     full_trace = {
         "available": bool(trace_paths),
         "paths": trace_paths,
         "counts": trace_counts,
     }
     client_trace = {
-        "available": bool(client_trace_paths),
-        "paths": client_trace_paths,
+        "available": bool(trace_paths),
+        "paths": trace_paths,
         "counts": trace_counts,
-        "truncated": len(client_trace_paths) < len(trace_paths),
+        "truncated": False,
     }
     metrics = summarize_pattern(result.angles_deg, result.pattern_db)
     return {
