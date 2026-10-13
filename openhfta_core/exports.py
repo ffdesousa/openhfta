@@ -115,8 +115,8 @@ ACCESSIBLE_RAY_COLORS = {
     "double_diffracted": "#cc79a7",
     "reflected_double_diffracted": "#f0e442",
 }
-SCENARIO_COLORS = ["#f2a65a", "#6bd48b", "#78b7d9", "#c58cff"]
-FLAT_SCENARIO_COLORS = ["#c76b5a", "#4f9f78", "#5f8fa8", "#9a6bc0"]
+SCENARIO_COLORS = ["#f2a65a", "#6bd48b", "#78b7d9", "#c58cff", "#ff7a8a", "#f0e06a", "#4fd1c5", "#b0bec5"]
+FLAT_SCENARIO_COLORS = ["#c76b5a", "#4f9f78", "#5f8fa8", "#9a6bc0", "#b85563", "#b3a64a", "#38958c", "#7f8c91"]
 SCENARIO_LINE_STYLES = ["-", (0, (6, 3)), (0, (1, 1)), (0, (5, 1, 1, 1))]
 RAY_LINE_STYLES = {
     "direct": "-",
@@ -398,7 +398,7 @@ def result_figure(payload: dict, image_format: str, locale: str = "pt-BR") -> by
 
 
 def comparison_figure(payload: dict, image_format: str, locale: str = "pt-BR") -> bytes:
-    """Render a comparison report for two to four scenarios: overlaid pattern and
+    """Render a comparison report for two or more scenarios: overlaid pattern and
     terrain charts, one ray-trace chart per scenario, per-scenario and pairwise
     metrics, and the automatic interpretation shown on the web comparison panel.
 
@@ -472,10 +472,10 @@ def comparison_figure(payload: dict, image_format: str, locale: str = "pt-BR") -
         name = scenario.get("name") or f"#{index + 1}"
         pattern = scenario.get("pattern_db") or []
         if pattern:
-            pattern_axis.plot(angles, pattern, color=SCENARIO_COLORS[index % 4], linewidth=2.2, label=f"{name} · PRO", zorder=3)
+            pattern_axis.plot(angles, pattern, color=SCENARIO_COLORS[index % len(SCENARIO_COLORS)], linewidth=2.2, label=f"{name} · PRO", zorder=3)
         flat = scenario.get("flat_pattern_db")
         if flat:
-            pattern_axis.plot(angles, flat, color=FLAT_SCENARIO_COLORS[index % 4], linewidth=1.5, linestyle="--", label=f"{name} · FLAT.PRO", zorder=2)
+            pattern_axis.plot(angles, flat, color=FLAT_SCENARIO_COLORS[index % len(FLAT_SCENARIO_COLORS)], linewidth=1.5, linestyle="--", label=f"{name} · FLAT.PRO", zorder=2)
     pattern_axis.set_xlim(0, 36)
     pattern_axis.set_ylim(-10, 20)
     pattern_axis.set_xticks(range(0, 37, 5))
@@ -496,7 +496,7 @@ def comparison_figure(payload: dict, image_format: str, locale: str = "pt-BR") -
         points = min(len(distances), len(heights), int(profile.get("points", len(distances))))
         if points:
             has_terrain = True
-            terrain_axis.plot(distances[:points], heights[:points], color=SCENARIO_COLORS[index % 4], linewidth=1.8, linestyle=SCENARIO_LINE_STYLES[index % 4], label=scenario.get("name") or f"#{index + 1}")
+            terrain_axis.plot(distances[:points], heights[:points], color=SCENARIO_COLORS[index % len(SCENARIO_COLORS)], linewidth=1.8, linestyle=SCENARIO_LINE_STYLES[index % len(SCENARIO_LINE_STYLES)], label=scenario.get("name") or f"#{index + 1}")
     if has_terrain:
         terrain_axis.legend(loc="upper right", facecolor=WEB["panel"], edgecolor=WEB["grid"], labelcolor=WEB["text"], fontsize=8, ncol=2)
     _style_axis(terrain_axis, x_label=text["distance_m"], y_label=text["altitude_m"], title=text["terrain_title"])

@@ -52,7 +52,10 @@ ANTENNA_TYPES = {
     "Dipole": 1, "2-Ele": 2, "3-Ele": 3, "4-Ele": 4,
     "5-Ele": 5, "6-Ele": 6, "8-Ele": 7,
 }
-POLARIZATIONS = {"horizontal": 0, "vertical": 1}
+POLARIZATIONS = {"horizontal": 0}
+# The portal does not cap the scenario count; this only bounds the work a
+# single request can demand from the public server (two analyses per scenario).
+MAX_SCENARIOS = 50
 
 class AIExplanationRequest(BaseModel):
     analysis: dict
@@ -76,11 +79,13 @@ def health() -> dict:
 @app.get("/api/prns")
 def available_prns() -> dict:
     """List bundled PRN files that can be selected by the web client."""
-    excluded = {"EXEMPLO-20.PRN", "EXEMPLO-20M.PRN"}
+    # PT9-FT8-OBS holds too few observations to serve as a reference statistic.
+    excluded = {"EXEMPLO-20.PRN", "EXEMPLO-20M.PRN", "PT9-FT8-OBS.PRN"}
     files = sorted(
         path.name
         for path in DEFAULT_PRN_DIR.glob("*.PRN")
-        if path.name.upper() not in excluded
+        # "-smoke" files are generator smoke-test outputs, not reference statistics.
+        if path.name.upper() not in excluded and not path.stem.lower().endswith("-smoke")
     ) if DEFAULT_PRN_DIR.is_dir() else []
     return {"files": files}
 
@@ -210,7 +215,7 @@ def _parse_heights(value: str, units: str) -> tuple[tuple[float, ...], tuple[int
 
 def _validate_polarization(value: str) -> str:
     if value not in POLARIZATIONS:
-        raise ValueError("polarization must be 'horizontal' or 'vertical'")
+        raise ValueError("polarization must be 'horizontal'")
     return value
 
 
@@ -300,7 +305,6 @@ _MODEL_LIMITATIONS_TEXT = {
     "pt-BR": [
         "O modelo representa um perfil bidimensional por azimute; não é uma simulação 3D completa.",
         "O núcleo trabalha com polarização {polarization} e modelos simplificados de antena.",
-        "Na polarização vertical, a reflexão usa Fresnel TM e a difração usa a combinação hard/TM do UTD escalar 2D; a validação contra referências externas continua necessária.",
         "O modelo de empilhamento não calcula acoplamento mútuo entre elementos muito próximos.",
         "A análise é uma estimativa de padrão de elevação, não uma garantia de enlace ou de intensidade recebida.",
         "A precisão depende da qualidade do DEM/perfil e pode apresentar artefatos em passos de 0,25°.",
@@ -308,7 +312,6 @@ _MODEL_LIMITATIONS_TEXT = {
     "en": [
         "The model represents a two-dimensional profile per azimuth; it is not a full 3D simulation.",
         "The core works with {polarization} polarization and simplified antenna models.",
-        "In vertical polarization, reflection uses Fresnel TM and diffraction uses the hard/TM combination of the 2D scalar UTD; validation against external references is still required.",
         "The stacking model does not compute mutual coupling between elements that are very close together.",
         "The analysis is an elevation-pattern estimate, not a guarantee of link performance or received signal strength.",
         "Accuracy depends on the quality of the DEM/profile and may show artifacts at 0.25° steps.",
@@ -316,7 +319,6 @@ _MODEL_LIMITATIONS_TEXT = {
     "es": [
         "El modelo representa un perfil bidimensional por azimut; no es una simulación 3D completa.",
         "El núcleo trabaja con polarización {polarization} y modelos simplificados de antena.",
-        "En la polarización vertical, la reflexión usa Fresnel TM y la difracción usa la combinación hard/TM del UTD escalar 2D; sigue siendo necesaria la validación con referencias externas.",
         "El modelo de apilamiento no calcula el acoplamiento mutuo entre elementos muy próximos.",
         "El análisis es una estimación del patrón de elevación, no una garantía de enlace ni de intensidad recibida.",
         "La precisión depende de la calidad del DEM/perfil y puede presentar artefactos en pasos de 0,25°.",
@@ -396,7 +398,7 @@ def _attach_plot_data(payload: dict, flat_result=None, aoa_data: dict[int, float
             "angles_deg": sorted_angles,
             "probabilities_pct": [aoa_data[angle] * 100.0 for angle in sorted_angles],
             "available": bool(aoa_data),
-            "message": None if aoa_data else f"A banda {aoa_band or 'correspondente'} não foi encontrada no arquivo .PRN",
+            "message": None if aoa_data else f"A banda {aoa_band or 'correspondente'} não foi encontrada ou não possui estatística no arquivo .PRN",
         }
         if aoa_data:
             payload["metrics"]["figure_of_merit_db"] = compute_fom(np.asarray(payload["pattern_db"], dtype=float), aoa_data)
@@ -513,7 +515,7 @@ async def analyze_endpoint(
 async def compare_endpoint(
     frequency: Annotated[str, Form()],
     profile: Annotated[UploadFile | None, File(description="Terrain profile in .PRO format")]=None,
-    profiles: Annotated[list[UploadFile] | None, File(description="Up to four terrain profiles in .PRO format")]=None,
+    profiles: Annotated[list[UploadFile] | None, File(description="Terrain profiles in .PRO format, shared or one per scenario")]=None,
     scenario_prns: Annotated[list[UploadFile] | None, File(description="Scenario-specific .PRN files, indexed by scenario_configs")]=None,
     aoa_file: Annotated[UploadFile | None, File(description="Optional angle-of-arrival statistics .PRN")]=None,
     aoa_default: Annotated[str | None, Form()] = None,
@@ -531,15 +533,15 @@ async def compare_endpoint(
     export_format: Annotated[str, Form()] = "json",
     locale: Annotated[str, Form()] = "pt-BR",
 ):
-    """Run two to four antenna/height/profile scenarios and compare them."""
+    """Run two or more antenna/height/profile scenarios and compare them."""
     uploaded_profiles = list(profiles or [])
     if profile is not None:
         uploaded_profiles.insert(0, profile)
     uploaded_profiles = [item for item in uploaded_profiles if item.filename]
     if not uploaded_profiles:
         raise HTTPException(422, "at least one profile must have a filename")
-    if len(uploaded_profiles) > 4:
-        raise HTTPException(422, "at most four terrain profiles are supported")
+    if len(uploaded_profiles) > MAX_SCENARIOS:
+        raise HTTPException(422, f"at most {MAX_SCENARIOS} terrain profiles are supported per request")
     default_configs = [
         {"name": f"{antenna_type_a} / {heights_a}", "heights": heights_a, "antenna_type": antenna_type_a},
         {"name": f"{antenna_type_b} / {heights_b}", "heights": heights_b, "antenna_type": antenna_type_b},
@@ -547,8 +549,10 @@ async def compare_endpoint(
     try:
         polarization = _validate_polarization(polarization)
         configs = json.loads(scenario_configs) if scenario_configs else default_configs
-        if not isinstance(configs, list) or not 2 <= len(configs) <= 4:
-            raise ValueError("scenario_configs must contain between two and four scenarios")
+        if not isinstance(configs, list) or len(configs) < 2:
+            raise ValueError("scenario_configs must contain at least two scenarios")
+        if len(configs) > MAX_SCENARIOS:
+            raise ValueError(f"scenario_configs accepts at most {MAX_SCENARIOS} scenarios per request")
         for config in configs:
             if not isinstance(config, dict) or config.get("antenna_type") not in ANTENNA_TYPES or not config.get("heights"):
                 raise ValueError("each scenario needs antenna_type and heights")

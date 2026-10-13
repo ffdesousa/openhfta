@@ -56,7 +56,8 @@ def parse_prn_multiband(content: str, band: Optional[str] = None) -> dict[int, f
             probability = percentage / 100.0
             if 0 <= probability <= 1 and 0 <= angle <= 90: result[angle] = probability
         except (ValueError, IndexError): continue
-    return result
+    # An all-zero column means the path has no statistics on that band.
+    return result if any(result.values()) else {}
 
 def parse_aoa_file(path: str, frequency_mhz: float) -> dict[int, float]:
     with open(path) as file: return parse_prn_multiband(file.read(), frequency_to_band(frequency_mhz))

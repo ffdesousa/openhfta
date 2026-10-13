@@ -190,6 +190,18 @@ Elev      20m    40m
         aoa_data = hfta.parse_prn_multiband(prn_content, "20m")
         expected = {1: 0.0, 5: 0.05, 10: 0.0}
         self.assertEqual(aoa_data, expected)
+
+    def test_parse_prn_format_band_without_statistics(self):
+        """A band column filled with zeros carries no statistics for that path."""
+        prn_content = """Test Path
+Elev      80m    20m
+ 1        0.0   40.0
+ 5        0.0   60.0
+10        0.0    0.0
+"""
+
+        self.assertEqual(hfta.parse_prn_multiband(prn_content, "80m"), {})
+        self.assertEqual(hfta.parse_prn_multiband(prn_content, "20m"), {1: 0.4, 5: 0.6, 10: 0.0})
     
 class TestFOMComputation(unittest.TestCase):
     """Test Figure of Merit computation."""

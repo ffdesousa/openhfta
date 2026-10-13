@@ -1,6 +1,7 @@
 import asyncio
 import json
 import os
+import re
 import unittest
 import httpx
 from pathlib import Path
@@ -30,7 +31,60 @@ class TestAPI(unittest.TestCase):
     def test_bundled_prns_are_available(self):
         response = self.request("GET", "/api/prns")
         self.assertEqual(response.status_code, 200)
-        self.assertEqual(response.json()["files"], sorted(path.name for path in (ROOT / "prns").glob("*.PRN")))
+        files = response.json()["files"]
+        self.assertEqual(files, sorted(
+            path.name for path in (ROOT / "prns").glob("*.PRN")
+            if not path.stem.lower().endswith("-smoke") and path.name != "PT9-FT8-OBS.PRN"
+        ))
+        for hidden in ("PT9-US-smoke.PRN", "PY5-EU-smoke.PRN", "PT9-FT8-OBS.PRN"):
+            self.assertNotIn(hidden, files)
+        for prefix in ("PP5", "PT9", "PY1", "PY5"):
+            for target in ("AF", "AS", "EU", "JA", "OC", "SA", "US"):
+                self.assertIn(f"{prefix}-{target}.PRN", files)
+
+    def test_web_fallback_prn_list_matches_bundled_prns(self):
+        source = (ROOT / "web/src/App.tsx").read_text(encoding="utf-8")
+        block = re.search(r"const DEFAULT_PRN_OPTIONS = \[(.*?)\]", source, re.S).group(1)
+        self.assertEqual(sorted(re.findall(r"'([^']+\.PRN)'", block)), self.request("GET", "/api/prns").json()["files"])
+
+    def test_bundled_prns_are_well_formed(self):
+        bands = ["80m", "40m", "30m", "20m", "17m", "15m", "12m", "10m"]
+        for name in self.request("GET", "/api/prns").json()["files"]:
+            lines = (ROOT / "prns" / name).read_text(encoding="ascii").splitlines()
+            self.assertEqual(lines[1].split(), ["Elev", *bands], name)
+            rows = [line.split() for line in lines[2:] if line.strip()]
+            self.assertEqual([int(row[0]) for row in rows], list(range(1, 71)), name)
+            for column, band in enumerate(bands, start=1):
+                total = sum(float(row[column]) for row in rows)
+                # Each band is either a full distribution or has no statistics at all.
+                self.assertTrue(total == 0 or abs(total - 100.0) <= 1.0, f"{name} {band}: {total:.1f}%")
+
+    def test_default_prn_band_without_statistics_is_not_an_error(self):
+        profile = ROOT / "test/pro/PR1T-torre1-332.00.PRO"
+        response = self.request(
+            "POST", "/api/analyze", data={"frequency": "80m", "aoa_default": "PY1-JA.PRN"},
+            files={"profile": (profile.name, profile.read_bytes(), "text/plain")},
+        )
+        self.assertEqual(response.status_code, 200, response.text)
+        payload = response.json()
+        self.assertNotIn("figure_of_merit_db", payload["metrics"])
+        self.assertIsNone(payload["sources"]["prn_name"])
+
+    def test_uploaded_prn_band_without_statistics_is_reported(self):
+        profile = ROOT / "test/pro/PR1T-torre1-332.00.PRO"
+        prn = b"Test path\nElev      80m    20m\n 1        0.0   40.0\n 5        0.0   60.0\n"
+        response = self.request(
+            "POST", "/api/analyze", data={"frequency": "80m"},
+            files={
+                "profile": (profile.name, profile.read_bytes(), "text/plain"),
+                "aoa_file": ("TEST.PRN", prn, "text/plain"),
+            },
+        )
+        self.assertEqual(response.status_code, 200, response.text)
+        payload = response.json()
+        self.assertFalse(payload["aoa"]["available"])
+        self.assertIn("80m", payload["aoa"]["message"])
+        self.assertNotIn("figure_of_merit_db", payload["metrics"])
 
     def test_feedback_is_sent_to_configured_mailer(self):
         with patch("api.main._send_feedback_email") as send_feedback:
@@ -105,17 +159,11 @@ class TestAPI(unittest.TestCase):
         self.assertIn("reflected", ray_counts)
         self.assertTrue(any(kind in ray_counts for kind in ("reflected_diffracted", "double_diffracted", "reflected_double_diffracted")))
 
-    def test_vertical_polarization_uses_tm_reflection(self):
+    def test_vertical_polarization_is_rejected(self):
         profile = ROOT / "test/pro/PR1T-torre1-332.00.PRO"
-        common = {"frequency": "20m", "units": "meters", "heights": "10"}
-        horizontal = self.request("POST", "/api/analyze", data={**common, "polarization": "horizontal"}, files={"profile": (profile.name, profile.read_bytes(), "text/plain")})
-        vertical = self.request("POST", "/api/analyze", data={**common, "polarization": "vertical"}, files={"profile": (profile.name, profile.read_bytes(), "text/plain")})
-        self.assertEqual(horizontal.status_code, 200, horizontal.text)
-        self.assertEqual(vertical.status_code, 200, vertical.text)
-        self.assertEqual(horizontal.json()["configuration"]["polarization"], "horizontal")
-        self.assertEqual(vertical.json()["configuration"]["polarization"], "vertical")
-        self.assertNotEqual(horizontal.json()["pattern_db"], vertical.json()["pattern_db"])
-        self.assertTrue(any("Fresnel TM" in item for item in vertical.json()["limitations"]))
+        response = self.request("POST", "/api/analyze", data={"frequency": "20m", "polarization": "vertical"}, files={"profile": (profile.name, profile.read_bytes(), "text/plain")})
+        self.assertEqual(response.status_code, 422)
+        self.assertIn("polarization", response.json()["detail"])
 
     def test_invalid_polarization_is_rejected(self):
         profile = ROOT / "test/pro/PR1T-torre1-332.00.PRO"
@@ -160,7 +208,7 @@ class TestAPI(unittest.TestCase):
         configs = [
             {"name": "Norte", "heights": "10", "antenna_type": "Dipole"},
             {"name": "Leste", "heights": "15", "antenna_type": "Dipole"},
-            {"name": "Sul", "heights": "10 20", "antenna_type": "2-Ele", "polarization": "vertical"},
+            {"name": "Sul", "heights": "10 20", "antenna_type": "2-Ele", "polarization": "horizontal"},
             {"name": "Oeste", "heights": "12 22*", "antenna_type": "2-Ele"},
         ]
         files = [
@@ -175,10 +223,52 @@ class TestAPI(unittest.TestCase):
         self.assertEqual(response.status_code, 200, response.text)
         payload = response.json()
         self.assertEqual(len(payload["scenarios"]), 4)
-        self.assertEqual(payload["scenarios"][2]["polarization"], "vertical")
+        self.assertEqual(payload["scenarios"][2]["polarization"], "horizontal")
         self.assertEqual(len(payload["comparison"]["pairwise"]), 3)
         self.assertEqual(len(payload["scenarios"][0]["profile"]["distances_m"]), 148)
         self.assertTrue(payload["limitations"])
+
+    def test_compare_accepts_more_than_four_scenarios(self):
+        profile = ROOT / "test/pro/PR1T-torre1-332.00.PRO"
+        configs = [{"name": f"Cenário {index + 1}", "heights": str(8 + 2 * index), "antenna_type": "Dipole"} for index in range(6)]
+        response = self.request(
+            "POST", "/api/compare",
+            data={"frequency": "20m", "scenario_configs": json.dumps(configs)},
+            files={"profile": (profile.name, profile.read_bytes(), "text/plain")},
+        )
+        self.assertEqual(response.status_code, 200, response.text)
+        payload = response.json()
+        self.assertEqual([scenario["name"] for scenario in payload["scenarios"]], [config["name"] for config in configs])
+        self.assertEqual(len(payload["comparison"]["pairwise"]), 5)
+        exported = self.request(
+            "POST", "/api/compare",
+            data={"frequency": "20m", "scenario_configs": json.dumps(configs), "export_format": "png"},
+            files={"profile": (profile.name, profile.read_bytes(), "text/plain")},
+        )
+        self.assertEqual(exported.status_code, 200, exported.text[:300])
+        self.assertTrue(exported.content.startswith(b"\x89PNG"))
+
+    def test_compare_requires_at_least_two_scenarios(self):
+        profile = ROOT / "test/pro/PR1T-torre1-332.00.PRO"
+        response = self.request(
+            "POST", "/api/compare",
+            data={"frequency": "20m", "scenario_configs": json.dumps([{"name": "Só um", "heights": "10", "antenna_type": "Dipole"}])},
+            files={"profile": (profile.name, profile.read_bytes(), "text/plain")},
+        )
+        self.assertEqual(response.status_code, 422)
+
+    def test_compare_rejects_vertical_scenario(self):
+        profile = ROOT / "test/pro/PR1T-torre1-332.00.PRO"
+        configs = [
+            {"name": "Norte", "heights": "10", "antenna_type": "Dipole"},
+            {"name": "Sul", "heights": "10 20", "antenna_type": "2-Ele", "polarization": "vertical"},
+        ]
+        response = self.request(
+            "POST", "/api/compare",
+            data={"frequency": "20m", "scenario_configs": json.dumps(configs)},
+            files={"profile": (profile.name, profile.read_bytes(), "text/plain")},
+        )
+        self.assertEqual(response.status_code, 422, response.text)
 
     def test_compare_scenarios_with_individual_prns(self):
         profile = ROOT / "test/pro/PR1T-torre1-332.00.PRO"
